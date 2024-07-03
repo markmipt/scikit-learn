@@ -40,19 +40,24 @@ Single and multi-output problems are both handled.
 # License: BSD 3 clause
 
 
+import threading
+from abc import ABCMeta, abstractmethod
 from numbers import Integral, Real
 from warnings import catch_warnings, simplefilter, warn
-import threading
 
-from abc import ABCMeta, abstractmethod
 import numpy as np
-from scipy.sparse import issparse
 from scipy.sparse import hstack as sparse_hstack
+from scipy.sparse import issparse
 
-from ..base import is_classifier
-from ..base import ClassifierMixin, MultiOutputMixin, RegressorMixin, TransformerMixin
-from ..base import _fit_context
-
+from ..base import (
+    ClassifierMixin,
+    MultiOutputMixin,
+    RegressorMixin,
+    TransformerMixin,
+    _fit_context,
+    is_classifier,
+)
+from ..exceptions import DataConversionWarning
 from ..metrics import accuracy_score, r2_score
 from ..preprocessing import OneHotEncoder
 from ..tree import (
@@ -62,21 +67,18 @@ from ..tree import (
     ExtraTreeClassifier,
     ExtraTreeRegressor,
 )
-from ..tree._tree import DTYPE, DOUBLE
+from ..tree._tree import DOUBLE, DTYPE
 from ..utils import check_random_state, compute_sample_weight
-from ..exceptions import DataConversionWarning
-from ._base import BaseEnsemble, _partition_estimators
-from ..utils.parallel import delayed, Parallel
+from ..utils._param_validation import Interval, RealNotInt, StrOptions
 from ..utils.multiclass import check_classification_targets, type_of_target
+from ..utils.parallel import Parallel, delayed
 from ..utils.validation import (
-    check_is_fitted,
-    _check_sample_weight,
     _check_feature_names_in,
+    _check_sample_weight,
+    _num_samples,
+    check_is_fitted,
 )
-from ..utils.validation import _num_samples
-from ..utils._param_validation import Interval, StrOptions
-from ..utils._param_validation import RealNotInt
-
+from ._base import BaseEnsemble, _partition_estimators
 
 __all__ = [
     "RandomForestClassifier",
@@ -151,6 +153,7 @@ def _parallel_build_trees(
     bootstrap,
     X,
     y,
+    groups,
     sample_weight,
     tree_idx,
     n_trees,
@@ -183,9 +186,11 @@ def _parallel_build_trees(
         elif class_weight == "balanced_subsample":
             curr_sample_weight *= compute_sample_weight("balanced", y, indices=indices)
 
-        tree.fit(X, y, sample_weight=curr_sample_weight, check_input=False)
+        # tree.fit(X, y, sample_weight=curr_sample_weight, check_input=False)
+        tree.fit(X, y, groups=groups, sample_weight=curr_sample_weight, check_input=False)
     else:
-        tree.fit(X, y, sample_weight=sample_weight, check_input=False)
+        # tree.fit(X, y, sample_weight=sample_weight, check_input=False)
+        tree.fit(X, y, groups=groups, sample_weight=sample_weight, check_input=False)
 
     return tree
 
@@ -313,7 +318,7 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
         return sparse_hstack(indicators).tocsr(), n_nodes_ptr
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, groups, sample_weight=None):
         """
         Build a forest of trees from the training set (X, y).
 
@@ -461,6 +466,7 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
                     self.bootstrap,
                     X,
                     y,
+                    groups,
                     sample_weight,
                     i,
                     len(trees),
@@ -1398,6 +1404,8 @@ class RandomForestClassifier(ForestClassifier):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_features="sqrt",
         max_leaf_nodes=None,
@@ -1420,6 +1428,8 @@ class RandomForestClassifier(ForestClassifier):
                 "max_depth",
                 "min_samples_split",
                 "min_samples_leaf",
+                "min_groups_leaf",
+                "min_weight_groups",
                 "min_weight_fraction_leaf",
                 "max_features",
                 "max_leaf_nodes",
@@ -1441,6 +1451,8 @@ class RandomForestClassifier(ForestClassifier):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
@@ -1740,6 +1752,8 @@ class RandomForestRegressor(ForestRegressor):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_features=1.0,
         max_leaf_nodes=None,
@@ -1761,6 +1775,8 @@ class RandomForestRegressor(ForestRegressor):
                 "max_depth",
                 "min_samples_split",
                 "min_samples_leaf",
+                "min_groups_leaf",
+                "min_weight_groups",
                 "min_weight_fraction_leaf",
                 "max_features",
                 "max_leaf_nodes",
@@ -1781,6 +1797,8 @@ class RandomForestRegressor(ForestRegressor):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
@@ -1975,7 +1993,7 @@ class ExtraTreesClassifier(ForestClassifier):
 
     Attributes
     ----------
-    estimator_ : :class:`~sklearn.tree.ExtraTreesClassifier`
+    estimator_ : :class:`~sklearn.tree.ExtraTreeClassifier`
         The child estimator template used to create the collection of fitted
         sub-estimators.
 
@@ -2089,6 +2107,8 @@ class ExtraTreesClassifier(ForestClassifier):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_features="sqrt",
         max_leaf_nodes=None,
@@ -2111,6 +2131,8 @@ class ExtraTreesClassifier(ForestClassifier):
                 "max_depth",
                 "min_samples_split",
                 "min_samples_leaf",
+                "min_groups_leaf",
+                "min_weight_groups",
                 "min_weight_fraction_leaf",
                 "max_features",
                 "max_leaf_nodes",
@@ -2132,6 +2154,8 @@ class ExtraTreesClassifier(ForestClassifier):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
@@ -2412,6 +2436,8 @@ class ExtraTreesRegressor(ForestRegressor):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_features=1.0,
         max_leaf_nodes=None,
@@ -2433,6 +2459,8 @@ class ExtraTreesRegressor(ForestRegressor):
                 "max_depth",
                 "min_samples_split",
                 "min_samples_leaf",
+                "min_groups_leaf",
+                "min_weight_groups",
                 "min_weight_fraction_leaf",
                 "max_features",
                 "max_leaf_nodes",
@@ -2453,6 +2481,8 @@ class ExtraTreesRegressor(ForestRegressor):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
@@ -2664,6 +2694,8 @@ class RandomTreesEmbedding(TransformerMixin, BaseForest):
         max_depth=5,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
@@ -2681,6 +2713,8 @@ class RandomTreesEmbedding(TransformerMixin, BaseForest):
                 "max_depth",
                 "min_samples_split",
                 "min_samples_leaf",
+                "min_groups_leaf",
+                "min_weight_groups",
                 "min_weight_fraction_leaf",
                 "max_features",
                 "max_leaf_nodes",
@@ -2699,6 +2733,8 @@ class RandomTreesEmbedding(TransformerMixin, BaseForest):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
@@ -2707,7 +2743,7 @@ class RandomTreesEmbedding(TransformerMixin, BaseForest):
     def _set_oob_score_and_attributes(self, X, y, scoring_function=None):
         raise NotImplementedError("OOB score not supported by tree embedding")
 
-    def fit(self, X, y=None, sample_weight=None):
+    def fit(self, X, y=None, groups=None, sample_weight=None):
         """
         Fit estimator.
 
@@ -2734,7 +2770,7 @@ class RandomTreesEmbedding(TransformerMixin, BaseForest):
             Returns the instance itself.
         """
         # Parameters are validated in fit_transform
-        self.fit_transform(X, y, sample_weight=sample_weight)
+        self.fit_transform(X, y, groups, sample_weight=sample_weight)
         return self
 
     @_fit_context(prefer_skip_nested_validation=True)

@@ -4,17 +4,16 @@
 #               2010 Fabian Pedregosa <fabian.pedregosa@inria.fr>
 # License: 3-clause BSD
 
-import sys
+import importlib
 import os
-from os.path import join
 import platform
 import shutil
+import sys
+import traceback
+from os.path import join
 
 from setuptools import Command, Extension, setup
 from setuptools.command.build_ext import build_ext
-
-import traceback
-import importlib
 
 try:
     import builtins
@@ -209,168 +208,168 @@ extension_config = {
         {"sources": ["_k_means_elkan.pyx"], "include_np": True},
         {"sources": ["_k_means_minibatch.pyx"], "include_np": True},
     ],
-    "cluster._hdbscan": [
-        {"sources": ["_linkage.pyx"], "include_np": True},
-        {"sources": ["_reachability.pyx"], "include_np": True},
-        {"sources": ["_tree.pyx"], "include_np": True},
-    ],
-    "datasets": [
-        {
-            "sources": ["_svmlight_format_fast.pyx"],
-            "include_np": True,
-            "compile_for_pypy": False,
-        }
-    ],
-    "decomposition": [
-        {"sources": ["_online_lda_fast.pyx"], "include_np": True},
-        {"sources": ["_cdnmf_fast.pyx"], "include_np": True},
-    ],
+    # "cluster._hdbscan": [
+    #     {"sources": ["_linkage.pyx"], "include_np": True},
+    #     {"sources": ["_reachability.pyx"], "include_np": True},
+    #     {"sources": ["_tree.pyx"], "language": "c++", "include_np": True},
+    # ],
+    # "datasets": [
+    #     {
+    #         "sources": ["_svmlight_format_fast.pyx"],
+    #         "include_np": True,
+    #         "compile_for_pypy": False,
+    #     }
+    # ],
+    # "decomposition": [
+    #     {"sources": ["_online_lda_fast.pyx"], "include_np": True},
+    #     {"sources": ["_cdnmf_fast.pyx"], "include_np": True},
+    # ],
     "ensemble": [
-        {"sources": ["_gradient_boosting.pyx"], "include_np": True},
+        {"sources": ["_gradient_boosting.pyx"], "language": "c++", "include_np": True},
     ],
     "ensemble._hist_gradient_boosting": [
-        {"sources": ["_gradient_boosting.pyx"], "include_np": True},
-        {"sources": ["histogram.pyx"], "include_np": True},
-        {"sources": ["splitting.pyx"], "include_np": True},
-        {"sources": ["_binning.pyx"], "include_np": True},
-        {"sources": ["_predictor.pyx"], "include_np": True},
-        {"sources": ["_bitset.pyx"], "include_np": True},
-        {"sources": ["common.pyx"], "include_np": True},
-        {"sources": ["utils.pyx"], "include_np": True},
+        {"sources": ["_gradient_boosting.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["histogram.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["splitting.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_binning.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_predictor.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_bitset.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["common.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["utils.pyx"], "language": "c++", "include_np": True},
     ],
-    "feature_extraction": [
-        {"sources": ["_hashing_fast.pyx"], "language": "c++", "include_np": True},
-    ],
-    "linear_model": [
-        {"sources": ["_cd_fast.pyx"], "include_np": True},
-        {"sources": ["_sgd_fast.pyx.tp"], "include_np": True},
-        {"sources": ["_sag_fast.pyx.tp"], "include_np": True},
-    ],
-    "manifold": [
-        {"sources": ["_utils.pyx"], "include_np": True},
-        {"sources": ["_barnes_hut_tsne.pyx"], "include_np": True},
-    ],
-    "metrics": [
-        {"sources": ["_pairwise_fast.pyx"], "include_np": True},
-        {
-            "sources": ["_dist_metrics.pyx.tp", "_dist_metrics.pxd.tp"],
-            "include_np": True,
-        },
-    ],
-    "metrics.cluster": [
-        {"sources": ["_expected_mutual_info_fast.pyx"], "include_np": True},
-    ],
-    "metrics._pairwise_distances_reduction": [
-        {
-            "sources": ["_datasets_pair.pyx.tp", "_datasets_pair.pxd.tp"],
-            "language": "c++",
-            "include_np": True,
-            "extra_compile_args": ["-std=c++11"],
-        },
-        {
-            "sources": ["_middle_term_computer.pyx.tp", "_middle_term_computer.pxd.tp"],
-            "language": "c++",
-            "extra_compile_args": ["-std=c++11"],
-        },
-        {
-            "sources": ["_base.pyx.tp", "_base.pxd.tp"],
-            "language": "c++",
-            "include_np": True,
-            "extra_compile_args": ["-std=c++11"],
-        },
-        {
-            "sources": ["_argkmin.pyx.tp", "_argkmin.pxd.tp"],
-            "language": "c++",
-            "include_np": True,
-            "extra_compile_args": ["-std=c++11"],
-        },
-        {
-            "sources": ["_argkmin_classmode.pyx.tp"],
-            "language": "c++",
-            "include_np": True,
-            "extra_compile_args": ["-std=c++11"],
-        },
-        {
-            "sources": ["_radius_neighbors.pyx.tp", "_radius_neighbors.pxd.tp"],
-            "language": "c++",
-            "include_np": True,
-            "extra_compile_args": ["-std=c++11"],
-        },
-    ],
-    "preprocessing": [
-        {"sources": ["_csr_polynomial_expansion.pyx"]},
-        {
-            "sources": ["_target_encoder_fast.pyx"],
-            "include_np": True,
-            "language": "c++",
-            "extra_compile_args": ["-std=c++11"],
-        },
-    ],
-    "neighbors": [
-        {"sources": ["_ball_tree.pyx"], "include_np": True},
-        {"sources": ["_kd_tree.pyx"], "include_np": True},
-        {"sources": ["_partition_nodes.pyx"], "language": "c++", "include_np": True},
-        {"sources": ["_quad_tree.pyx"], "include_np": True},
-    ],
-    "svm": [
-        {
-            "sources": ["_newrand.pyx"],
-            "include_np": True,
-            "include_dirs": [join("src", "newrand")],
-            "language": "c++",
-            # Use C++11 random number generator fix
-            "extra_compile_args": ["-std=c++11"],
-        },
-        {
-            "sources": ["_libsvm.pyx"],
-            "depends": [
-                join("src", "libsvm", "libsvm_helper.c"),
-                join("src", "libsvm", "libsvm_template.cpp"),
-                join("src", "libsvm", "svm.cpp"),
-                join("src", "libsvm", "svm.h"),
-                join("src", "newrand", "newrand.h"),
-            ],
-            "include_dirs": [
-                join("src", "libsvm"),
-                join("src", "newrand"),
-            ],
-            "libraries": ["libsvm-skl"],
-            "extra_link_args": ["-lstdc++"],
-            "include_np": True,
-        },
-        {
-            "sources": ["_liblinear.pyx"],
-            "libraries": ["liblinear-skl"],
-            "include_dirs": [
-                join("src", "liblinear"),
-                join("src", "newrand"),
-                join("..", "utils"),
-            ],
-            "include_np": True,
-            "depends": [
-                join("src", "liblinear", "tron.h"),
-                join("src", "liblinear", "linear.h"),
-                join("src", "liblinear", "liblinear_helper.c"),
-                join("src", "newrand", "newrand.h"),
-            ],
-            "extra_link_args": ["-lstdc++"],
-        },
-        {
-            "sources": ["_libsvm_sparse.pyx"],
-            "libraries": ["libsvm-skl"],
-            "include_dirs": [
-                join("src", "libsvm"),
-                join("src", "newrand"),
-            ],
-            "include_np": True,
-            "depends": [
-                join("src", "libsvm", "svm.h"),
-                join("src", "newrand", "newrand.h"),
-                join("src", "libsvm", "libsvm_sparse_helper.c"),
-            ],
-            "extra_link_args": ["-lstdc++"],
-        },
-    ],
+    # "feature_extraction": [
+    #     {"sources": ["_hashing_fast.pyx"], "language": "c++", "include_np": True},
+    # ],
+    # "linear_model": [
+    #     {"sources": ["_cd_fast.pyx"], "include_np": True},
+    #     {"sources": ["_sgd_fast.pyx.tp"], "include_np": True},
+    #     {"sources": ["_sag_fast.pyx.tp"], "include_np": True},
+    # ],
+    # "manifold": [
+    #     {"sources": ["_utils.pyx"], "include_np": True},
+    #     {"sources": ["_barnes_hut_tsne.pyx"], "include_np": True},
+    # ],
+    # "metrics": [
+    #     {"sources": ["_pairwise_fast.pyx"], "include_np": True},
+    #     {
+    #         "sources": ["_dist_metrics.pyx.tp", "_dist_metrics.pxd.tp"],
+    #         "include_np": True,
+    #     },
+    # ],
+    # "metrics.cluster": [
+    #     {"sources": ["_expected_mutual_info_fast.pyx"], "include_np": True},
+    # ],
+    # "metrics._pairwise_distances_reduction": [
+    #     {
+    #         "sources": ["_datasets_pair.pyx.tp", "_datasets_pair.pxd.tp"],
+    #         "language": "c++",
+    #         "include_np": True,
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    #     {
+    #         "sources": ["_middle_term_computer.pyx.tp", "_middle_term_computer.pxd.tp"],
+    #         "language": "c++",
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    #     {
+    #         "sources": ["_base.pyx.tp", "_base.pxd.tp"],
+    #         "language": "c++",
+    #         "include_np": True,
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    #     {
+    #         "sources": ["_argkmin.pyx.tp", "_argkmin.pxd.tp"],
+    #         "language": "c++",
+    #         "include_np": True,
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    #     {
+    #         "sources": ["_argkmin_classmode.pyx.tp"],
+    #         "language": "c++",
+    #         "include_np": True,
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    #     {
+    #         "sources": ["_radius_neighbors.pyx.tp", "_radius_neighbors.pxd.tp"],
+    #         "language": "c++",
+    #         "include_np": True,
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    # ],
+    # "preprocessing": [
+    #     {"sources": ["_csr_polynomial_expansion.pyx"]},
+    #     {
+    #         "sources": ["_target_encoder_fast.pyx"],
+    #         "include_np": True,
+    #         "language": "c++",
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    # ],
+    # "neighbors": [
+    #     {"sources": ["_ball_tree.pyx"], "include_np": True},
+    #     {"sources": ["_kd_tree.pyx"], "include_np": True},
+    #     {"sources": ["_partition_nodes.pyx"], "language": "c++", "include_np": True},
+    #     {"sources": ["_quad_tree.pyx"], "include_np": True},
+    # ],
+    # "svm": [
+    #     {
+    #         "sources": ["_newrand.pyx"],
+    #         "include_np": True,
+    #         "include_dirs": [join("src", "newrand")],
+    #         "language": "c++",
+    #         # Use C++11 random number generator fix
+    #         "extra_compile_args": ["-std=c++11"],
+    #     },
+    #     {
+    #         "sources": ["_libsvm.pyx"],
+    #         "depends": [
+    #             join("src", "libsvm", "libsvm_helper.c"),
+    #             join("src", "libsvm", "libsvm_template.cpp"),
+    #             join("src", "libsvm", "svm.cpp"),
+    #             join("src", "libsvm", "svm.h"),
+    #             join("src", "newrand", "newrand.h"),
+    #         ],
+    #         "include_dirs": [
+    #             join("src", "libsvm"),
+    #             join("src", "newrand"),
+    #         ],
+    #         "libraries": ["libsvm-skl"],
+    #         "extra_link_args": ["-lstdc++"],
+    #         "include_np": True,
+    #     },
+    #     {
+    #         "sources": ["_liblinear.pyx"],
+    #         "libraries": ["liblinear-skl"],
+    #         "include_dirs": [
+    #             join("src", "liblinear"),
+    #             join("src", "newrand"),
+    #             join("..", "utils"),
+    #         ],
+    #         "include_np": True,
+    #         "depends": [
+    #             join("src", "liblinear", "tron.h"),
+    #             join("src", "liblinear", "linear.h"),
+    #             join("src", "liblinear", "liblinear_helper.c"),
+    #             join("src", "newrand", "newrand.h"),
+    #         ],
+    #         "extra_link_args": ["-lstdc++"],
+    #     },
+    #     {
+    #         "sources": ["_libsvm_sparse.pyx"],
+    #         "libraries": ["libsvm-skl"],
+    #         "include_dirs": [
+    #             join("src", "libsvm"),
+    #             join("src", "newrand"),
+    #         ],
+    #         "include_np": True,
+    #         "depends": [
+    #             join("src", "libsvm", "svm.h"),
+    #             join("src", "newrand", "newrand.h"),
+    #             join("src", "libsvm", "libsvm_sparse_helper.c"),
+    #         ],
+    #         "extra_link_args": ["-lstdc++"],
+    #     },
+    # ],
     "tree": [
         {
             "sources": ["_tree.pyx"],
@@ -378,9 +377,9 @@ extension_config = {
             "include_np": True,
             "optimization_level": "O3",
         },
-        {"sources": ["_splitter.pyx"], "include_np": True, "optimization_level": "O3"},
-        {"sources": ["_criterion.pyx"], "include_np": True, "optimization_level": "O3"},
-        {"sources": ["_utils.pyx"], "include_np": True, "optimization_level": "O3"},
+        {"sources": ["_splitter.pyx"], "language": "c++", "include_np": True, "optimization_level": "O3"},
+        {"sources": ["_criterion.pyx"], "language": "c++", "include_np": True, "optimization_level": "O3"},
+        {"sources": ["_utils.pyx"], "language": "c++", "include_np": True, "optimization_level": "O3"},
     ],
     "utils": [
         {"sources": ["sparsefuncs_fast.pyx"], "include_np": True},
@@ -454,9 +453,9 @@ def configure_extension_modules():
     if "sdist" in sys.argv or "--help" in sys.argv:
         return []
 
-    from sklearn._build_utils import cythonize_extensions
-    from sklearn._build_utils import gen_from_templates
     import numpy
+
+    from sklearn._build_utils import cythonize_extensions, gen_from_templates
 
     is_pypy = platform.python_implementation() == "PyPy"
     np_include = numpy.get_include()
@@ -601,6 +600,12 @@ def setup_package():
             for key in ["examples", "docs", "tests", "benchmark"]
         },
     )
+
+    # Overwrite the dependencies to not allow for NumPy >= 2.0
+    metadata["install_requires"] = [
+        f"{dep},<2.0" if dep.startswith("numpy") else dep
+        for dep in metadata["install_requires"]
+    ]
 
     commands = [arg for arg in sys.argv[1:] if not arg.startswith("-")]
     if not all(

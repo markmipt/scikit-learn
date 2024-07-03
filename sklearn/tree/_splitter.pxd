@@ -9,6 +9,9 @@
 
 # See _splitter.pyx for details.
 
+from libcpp.set cimport set as cppset
+from cython.operator cimport dereference as deref, preincrement as inc
+
 from ._criterion cimport Criterion
 
 from ._tree cimport DTYPE_t          # Type of X
@@ -41,6 +44,8 @@ cdef class Splitter:
     cdef public SIZE_t max_features      # Number of features to test
     cdef public SIZE_t min_samples_leaf  # Min samples in a leaf
     cdef public double min_weight_leaf   # Minimum weight in a leaf
+    cdef public SIZE_t min_groups_leaf   # Min groups in a leaf
+    cdef public double min_weight_groups # min weight group
 
     cdef object random_state             # Random state
     cdef UINT32_t rand_r_state           # sklearn_rand_r random number state
@@ -57,6 +62,7 @@ cdef class Splitter:
     cdef SIZE_t end                      # End position for the current node
 
     cdef const DOUBLE_t[:, ::1] y
+    cdef const INT32_t[:] groups
     cdef const DOUBLE_t[:] sample_weight
 
     # The samples vector `samples` is maintained by the Splitter object such
@@ -80,6 +86,7 @@ cdef class Splitter:
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
         const unsigned char[::1] missing_values_in_feature_mask,
     ) except -1

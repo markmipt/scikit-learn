@@ -32,7 +32,6 @@ cnp.import_array()
 
 from scipy.sparse import issparse
 from scipy.sparse import csr_matrix
-from scipy.sparse import isspmatrix_csr
 
 from ._utils cimport safe_realloc
 from ._utils cimport sizet_ptr_to_ndarray
@@ -93,6 +92,7 @@ cdef class TreeBuilder:
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=None,
         const unsigned char[::1] missing_values_in_feature_mask=None,
     ):
@@ -103,6 +103,7 @@ cdef class TreeBuilder:
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
     ):
         """Check input dtype, layout and format"""
@@ -153,11 +154,13 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
     """Build a decision tree in depth-first fashion."""
 
     def __cinit__(self, Splitter splitter, SIZE_t min_samples_split,
-                  SIZE_t min_samples_leaf, double min_weight_leaf,
+                  SIZE_t min_samples_leaf, double min_weight_leaf, SIZE_t min_groups_leaf, double min_weight_groups,
                   SIZE_t max_depth, double min_impurity_decrease):
         self.splitter = splitter
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_leaf = min_weight_leaf
         self.max_depth = max_depth
         self.min_impurity_decrease = min_impurity_decrease
@@ -167,13 +170,14 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=None,
         const unsigned char[::1] missing_values_in_feature_mask=None,
     ):
         """Build a decision tree from the training set (X, y)."""
 
         # check input
-        X, y, sample_weight = self._check_input(X, y, sample_weight)
+        X, y, sample_weight = self._check_input(X, y, groups, sample_weight)
 
         # Initial capacity
         cdef int init_capacity
@@ -189,12 +193,14 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef Splitter splitter = self.splitter
         cdef SIZE_t max_depth = self.max_depth
         cdef SIZE_t min_samples_leaf = self.min_samples_leaf
+        cdef SIZE_t min_groups_leaf = self.min_groups_leaf
+        cdef double min_weight_groups = self.min_weight_groups
         cdef double min_weight_leaf = self.min_weight_leaf
         cdef SIZE_t min_samples_split = self.min_samples_split
         cdef double min_impurity_decrease = self.min_impurity_decrease
 
         # Recursive partition (without actual recursion)
-        splitter.init(X, y, sample_weight, missing_values_in_feature_mask)
+        splitter.init(X, y, groups, sample_weight, missing_values_in_feature_mask)
 
         cdef SIZE_t start
         cdef SIZE_t end
@@ -365,20 +371,21 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=None,
         const unsigned char[::1] missing_values_in_feature_mask=None,
     ):
         """Build a decision tree from the training set (X, y)."""
 
         # check input
-        X, y, sample_weight = self._check_input(X, y, sample_weight)
+        X, y, sample_weight = self._check_input(X, y, groups, sample_weight)
 
         # Parameters
         cdef Splitter splitter = self.splitter
         cdef SIZE_t max_leaf_nodes = self.max_leaf_nodes
 
         # Recursive partition (without actual recursion)
-        splitter.init(X, y, sample_weight, missing_values_in_feature_mask)
+        splitter.init(X, y, groups, sample_weight, missing_values_in_feature_mask)
 
         cdef vector[FrontierRecord] frontier
         cdef FrontierRecord record
@@ -464,11 +471,19 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
         if rc == -1:
             raise MemoryError()
 
-    cdef inline int _add_split_node(self, Splitter splitter, Tree tree,
-                                    SIZE_t start, SIZE_t end, double impurity,
-                                    bint is_first, bint is_left, Node* parent,
-                                    SIZE_t depth,
-                                    FrontierRecord* res) except -1 nogil:
+    cdef inline int _add_split_node(
+        self,
+        Splitter splitter,
+        Tree tree,
+        SIZE_t start,
+        SIZE_t end,
+        double impurity,
+        bint is_first,
+        bint is_left,
+        Node* parent,
+        SIZE_t depth,
+        FrontierRecord* res
+    ) except -1 nogil:
         """Adds node w/ partition ``[start, end)`` to the frontier. """
         cdef SplitRecord split
         cdef SIZE_t node_id
@@ -574,6 +589,9 @@ cdef class Tree:
         children_right[i] > i. This child handles the case where
         X[:, feature[i]] > threshold[i].
 
+    n_leaves : int
+        Number of leaves in the tree.
+
     feature : array of int, shape [node_count]
         feature[i] holds the feature to split on, for the internal node i.
 
@@ -593,6 +611,10 @@ cdef class Tree:
     weighted_n_node_samples : array of double, shape [node_count]
         weighted_n_node_samples[i] holds the weighted number of training samples
         reaching node i.
+
+    missing_go_to_left : array of bool, shape [node_count]
+        missing_go_to_left[i] holds a bool indicating whether or not there were
+        missing values at node i.
     """
     # Wrap for outside world.
     # WARNING: these reference the current `nodes` and `value` buffers, which
@@ -877,7 +899,7 @@ cdef class Tree:
         """Finds the terminal region (=leaf node) for each sample in sparse X.
         """
         # Check input
-        if not isspmatrix_csr(X):
+        if not (issparse(X) and X.format == 'csr'):
             raise ValueError("X should be in csr_matrix format, got %s"
                              % type(X))
 
@@ -1005,7 +1027,7 @@ cdef class Tree:
         """Finds the decision path (=node) for each sample in X."""
 
         # Check input
-        if not isspmatrix_csr(X):
+        if not (issparse(X) and X.format == "csr"):
             raise ValueError("X should be in csr_matrix format, got %s"
                              % type(X))
 
