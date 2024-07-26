@@ -25,19 +25,20 @@ Important links
 Usage example
 ~~~~~~~~~~~~~
 
-```python 
-from sklearn.datasets import load_diabetes
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import ExtraTreesRegressor
-import random
-X, y = load_diabetes(return_X_y=True)
-G = np.array([random.randint(1,3) for _ in range(len(y))])
-X_train, X_test, y_train, y_test, G_train, G_test = train_test_split(
-    X, y, G, random_state=0)
-reg = ExtraTreesRegressor(n_estimators=100, random_state=0, min_groups_leaf=3).fit(
-   X_train, y_train, groups=G_train.astype(np.int32))
-reg.score(X_test, y_test)
-```
+.. code-block:: python
+
+    from sklearn.datasets import load_diabetes
+    from sklearn.model_selection import train_test_split
+    from sklearn.ensemble import ExtraTreesRegressor
+    import random
+    X, y = load_diabetes(return_X_y=True)
+    G = np.array([random.randint(1,3) for _ in range(len(y))])
+    X_train, X_test, y_train, y_test, G_train, G_test = train_test_split(
+        X, y, G, random_state=0)
+    reg = ExtraTreesRegressor(n_estimators=100, random_state=0, min_groups_leaf=3).fit(
+       X_train, y_train, groups=G_train.astype(np.int32))
+    reg.score(X_test, y_test)
+
 
 
 Citation
