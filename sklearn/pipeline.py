@@ -15,25 +15,21 @@ from itertools import islice
 import numpy as np
 from scipy import sparse
 
-from .base import clone, TransformerMixin
-from .base import _fit_context
+from .base import TransformerMixin, _fit_context, clone
+from .exceptions import NotFittedError
 from .preprocessing import FunctionTransformer
-from .utils._estimator_html_repr import _VisualBlock
-from .utils.metaestimators import available_if
 from .utils import (
     Bunch,
     _print_elapsed_time,
+    check_pandas_support,
 )
-from .utils._tags import _safe_tags
-from .utils.validation import check_memory
-from .utils.validation import check_is_fitted
-from .utils import check_pandas_support
+from .utils._estimator_html_repr import _VisualBlock
 from .utils._param_validation import HasMethods, Hidden
-from .utils._set_output import _safe_set_output, _get_output_config
-from .utils.parallel import delayed, Parallel
-from .exceptions import NotFittedError
-
-from .utils.metaestimators import _BaseComposition
+from .utils._set_output import _get_output_config, _safe_set_output
+from .utils._tags import _safe_tags
+from .utils.metaestimators import _BaseComposition, available_if
+from .utils.parallel import Parallel, delayed
+from .utils.validation import check_is_fitted, check_memory
 
 __all__ = ["Pipeline", "FeatureUnion", "make_pipeline", "make_union"]
 
@@ -68,6 +64,12 @@ class Pipeline(_BaseComposition):
     estimator may be replaced entirely by setting the parameter with its name
     to another estimator, or a transformer removed by setting it to
     `'passthrough'` or `None`.
+
+    For an example use case of `Pipeline` combined with
+    :class:`~sklearn.model_selection.GridSearchCV`, refer to
+    :ref:`sphx_glr_auto_examples_compose_plot_compare_reduction.py`. The
+    example :ref:`sphx_glr_auto_examples_compose_plot_digits_pipe.py` shows how
+    to grid search on a pipeline using `'__'` as a separator in the parameter names.
 
     Read more in the :ref:`User Guide <pipeline>`.
 
@@ -135,10 +137,11 @@ class Pipeline(_BaseComposition):
     >>> pipe = Pipeline([('scaler', StandardScaler()), ('svc', SVC())])
     >>> # The pipeline can be used as any other estimator
     >>> # and avoids leaking the test set into the train set
-    >>> pipe.fit(X_train, y_train)
-    Pipeline(steps=[('scaler', StandardScaler()), ('svc', SVC())])
-    >>> pipe.score(X_test, y_test)
+    >>> pipe.fit(X_train, y_train).score(X_test, y_test)
     0.88
+    >>> # An estimator's parameter can be set using '__' syntax
+    >>> pipe.set_params(svc__C=10).fit(X_train, y_train).score(X_test, y_test)
+    0.76
     """
 
     # BaseEstimator interface
@@ -1055,6 +1058,13 @@ class FeatureUnion(TransformerMixin, _BaseComposition):
     >>> union.fit_transform(X)
     array([[ 1.5       ,  3.0...,  0.8...],
            [-1.5       ,  5.7..., -0.4...]])
+    >>> # An estimator's parameter can be set using '__' syntax
+    >>> union.set_params(pca__n_components=1).fit_transform(X)
+    array([[ 1.5       ,  3.0...],
+           [-1.5       ,  5.7...]])
+
+    For a more detailed example of usage, see
+    :ref:`sphx_glr_auto_examples_compose_plot_feature_union.py`.
     """
 
     _required_parameters = ["transformer_list"]
@@ -1366,11 +1376,12 @@ class FeatureUnion(TransformerMixin, _BaseComposition):
 
 
 def make_union(*transformers, n_jobs=None, verbose=False):
-    """Construct a FeatureUnion from the given transformers.
+    """Construct a :class:`FeatureUnion` from the given transformers.
 
-    This is a shorthand for the FeatureUnion constructor; it does not require,
-    and does not permit, naming the transformers. Instead, they will be given
-    names automatically based on their types. It also does not allow weighting.
+    This is a shorthand for the :class:`FeatureUnion` constructor; it does not
+    require, and does not permit, naming the transformers. Instead, they will
+    be given names automatically based on their types. It also does not allow
+    weighting.
 
     Parameters
     ----------

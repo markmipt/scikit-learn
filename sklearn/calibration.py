@@ -7,43 +7,51 @@
 #
 # License: BSD 3 clause
 
-from numbers import Integral, Real
 import warnings
-from inspect import signature
 from functools import partial
-
+from inspect import signature
 from math import log
-import numpy as np
+from numbers import Integral, Real
 
-from scipy.special import expit
-from scipy.special import xlogy
+import numpy as np
 from scipy.optimize import fmin_bfgs
+from scipy.special import expit, xlogy
+
+from sklearn.utils import Bunch
 
 from .base import (
     BaseEstimator,
     ClassifierMixin,
-    RegressorMixin,
-    clone,
     MetaEstimatorMixin,
+    RegressorMixin,
     _fit_context,
+    clone,
 )
-from .preprocessing import label_binarize, LabelEncoder
+from .isotonic import IsotonicRegression
+from .model_selection import check_cv, cross_val_predict
+from .preprocessing import LabelEncoder, label_binarize
+from .svm import LinearSVC
 from .utils import (
+    _safe_indexing,
     column_or_1d,
     indexable,
-    _safe_indexing,
 )
-
-from .utils.multiclass import check_classification_targets
-from .utils.parallel import delayed, Parallel
 from .utils._param_validation import (
-    StrOptions,
     HasMethods,
     Hidden,
-    validate_params,
     Interval,
+    StrOptions,
+    validate_params,
 )
 from .utils._plotting import _BinaryClassifierCurveDisplayMixin
+from .utils.metadata_routing import (
+    MetadataRouter,
+    MethodMapping,
+    _routing_enabled,
+    process_routing,
+)
+from .utils.multiclass import check_classification_targets
+from .utils.parallel import Parallel, delayed
 from .utils.validation import (
     _check_fit_params,
     _check_pos_label_consistency,
@@ -51,16 +59,6 @@ from .utils.validation import (
     _num_samples,
     check_consistent_length,
     check_is_fitted,
-)
-from .isotonic import IsotonicRegression
-from .svm import LinearSVC
-from .model_selection import check_cv, cross_val_predict
-from sklearn.utils import Bunch
-from .utils.metadata_routing import (
-    MetadataRouter,
-    MethodMapping,
-    process_routing,
-    _routing_enabled,
 )
 
 
@@ -534,7 +532,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
         Returns
         -------
         routing : MetadataRouter
-            A :class:`~utils.metadata_routing.MetadataRouter` encapsulating
+            A :class:`~sklearn.utils.metadata_routing.MetadataRouter` encapsulating
             routing information.
         """
         router = (
@@ -825,7 +823,11 @@ class _CalibratedClassifier:
         return proba
 
 
-def _sigmoid_calibration(predictions, y, sample_weight=None):
+# The max_abs_prediction_threshold was approximated using
+# logit(np.finfo(np.float64).eps) which is about -36
+def _sigmoid_calibration(
+    predictions, y, sample_weight=None, max_abs_prediction_threshold=30
+):
     """Probability Calibration with sigmoid method (Platt 2000)
 
     Parameters
@@ -855,6 +857,20 @@ def _sigmoid_calibration(predictions, y, sample_weight=None):
     y = column_or_1d(y)
 
     F = predictions  # F follows Platt's notations
+
+    scale_constant = 1.0
+    max_prediction = np.max(np.abs(F))
+
+    # If the predictions have large values we scale them in order to bring
+    # them within a suitable range. This has no effect on the final
+    # (prediction) result because linear models like Logisitic Regression
+    # without a penalty are invariant to multiplying the features by a
+    # constant.
+    if max_prediction >= max_abs_prediction_threshold:
+        scale_constant = max_prediction
+        # We rescale the features in a copy: inplace rescaling could confuse
+        # the caller and make the code harder to reason about.
+        F = F / scale_constant
 
     # Bayesian priors (see Platt end of section 2.2):
     # It corresponds to the number of samples, taking into account the
@@ -892,7 +908,11 @@ def _sigmoid_calibration(predictions, y, sample_weight=None):
 
     AB0 = np.array([0.0, log((prior0 + 1.0) / (prior1 + 1.0))])
     AB_ = fmin_bfgs(objective, AB0, fprime=grad, disp=False)
-    return AB_[0], AB_[1]
+
+    # The tuned multiplicative parameter is converted back to the original
+    # input feature scale. The offset parameter does not need rescaling since
+    # we did not rescale the outcome variable.
+    return AB_[0] / scale_constant, AB_[1]
 
 
 class _SigmoidCalibration(RegressorMixin, BaseEstimator):
@@ -957,7 +977,8 @@ class _SigmoidCalibration(RegressorMixin, BaseEstimator):
         "pos_label": [Real, str, "boolean", None],
         "n_bins": [Interval(Integral, 1, None, closed="left")],
         "strategy": [StrOptions({"uniform", "quantile"})],
-    }
+    },
+    prefer_skip_nested_validation=True,
 )
 def calibration_curve(
     y_true,
@@ -1187,7 +1208,7 @@ class CalibrationDisplay(_BinaryClassifierCurveDisplayMixin):
             f"(Positive class: {self.pos_label})" if self.pos_label is not None else ""
         )
 
-        line_kwargs = {}
+        line_kwargs = {"marker": "s", "linestyle": "-"}
         if name is not None:
             line_kwargs["label"] = name
         line_kwargs.update(**kwargs)
@@ -1196,9 +1217,7 @@ class CalibrationDisplay(_BinaryClassifierCurveDisplayMixin):
         existing_ref_line = ref_line_label in self.ax_.get_legend_handles_labels()[1]
         if ref_line and not existing_ref_line:
             self.ax_.plot([0, 1], [0, 1], "k:", label=ref_line_label)
-        self.line_ = self.ax_.plot(self.prob_pred, self.prob_true, "s-", **line_kwargs)[
-            0
-        ]
+        self.line_ = self.ax_.plot(self.prob_pred, self.prob_true, **line_kwargs)[0]
 
         # We always have to show the legend for at least the reference line
         self.ax_.legend(loc="lower right")

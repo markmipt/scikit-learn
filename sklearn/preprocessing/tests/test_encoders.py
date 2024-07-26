@@ -1,17 +1,17 @@
 import re
 
 import numpy as np
-from scipy import sparse
 import pytest
+from scipy import sparse
 
 from sklearn.exceptions import NotFittedError
-from sklearn.utils._testing import assert_array_equal
-from sklearn.utils._testing import assert_allclose
-from sklearn.utils._testing import _convert_container
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.utils import is_scalar_nan
-
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.utils._testing import (
+    _convert_container,
+    assert_allclose,
+    assert_array_equal,
+)
 
 
 def test_one_hot_encoder_sparse_dense():
@@ -240,7 +240,7 @@ def check_categorical_onehot(X):
 
     assert_allclose(Xtr1.toarray(), Xtr2)
 
-    assert sparse.isspmatrix_csr(Xtr1)
+    assert sparse.issparse(Xtr1) and Xtr1.format == "csr"
     return Xtr1.toarray()
 
 
@@ -414,7 +414,7 @@ def test_X_is_not_1D_pandas(method):
             np.object_,
         ),
         (np.array([["A", "cat"], ["B", "cat"]]), [["A", "B"], ["cat"]], np.str_),
-        (np.array([[1, 2], [np.nan, 2]]), [[1, np.nan], [2]], np.float_),
+        (np.array([[1, 2], [np.nan, 2]]), [[1, np.nan], [2]], np.float64),
         (
             np.array([["A", np.nan], [None, np.nan]], dtype=object),
             [["A", None], [np.nan]],
@@ -1586,6 +1586,26 @@ def test_ohe_drop_first_explicit_categories(handle_unknown):
     with pytest.warns(UserWarning, match=warn_msg):
         X_trans = ohe.transform(X_test)
     assert_allclose(X_trans, X_expected)
+
+
+def test_ohe_more_informative_error_message():
+    """Raise informative error message when pandas output and sparse_output=True."""
+    pd = pytest.importorskip("pandas")
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["z", "b", "b"]}, columns=["a", "b"])
+
+    ohe = OneHotEncoder(sparse_output=True)
+    ohe.set_output(transform="pandas")
+
+    msg = (
+        "Pandas output does not support sparse data. Set "
+        "sparse_output=False to output pandas DataFrames or disable pandas output"
+    )
+    with pytest.raises(ValueError, match=msg):
+        ohe.fit_transform(df)
+
+    ohe.fit(df)
+    with pytest.raises(ValueError, match=msg):
+        ohe.transform(df)
 
 
 def test_ordinal_encoder_passthrough_missing_values_float_errors_dtype():

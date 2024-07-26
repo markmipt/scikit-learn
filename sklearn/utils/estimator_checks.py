@@ -1,78 +1,27 @@
-import warnings
 import importlib
 import itertools
 import pickle
 import re
+import warnings
 from copy import deepcopy
 from functools import partial, wraps
 from inspect import signature
-from numbers import Real, Integral
+from numbers import Integral, Real
 
+import joblib
 import numpy as np
 from scipy import sparse
 from scipy.stats import rankdata
-import joblib
 
-from . import IS_PYPY
 from .. import config_context
-from ._param_validation import Interval
-from ._testing import _get_args
-from ._testing import assert_raise_message
-from ._testing import assert_array_equal
-from ._testing import assert_array_almost_equal
-from ._testing import assert_allclose
-from ._testing import assert_allclose_dense_sparse
-from ._testing import assert_array_less
-from ._testing import set_random_state
-from ._testing import SkipTest
-from ._testing import ignore_warnings
-from ._testing import create_memmap_backed_data
-from ._testing import raises
-from . import is_scalar_nan
-
-from ..linear_model import LinearRegression
-from ..linear_model import LogisticRegression
-from ..linear_model import RANSACRegressor
-from ..linear_model import Ridge
-from ..linear_model import SGDRegressor
-
 from ..base import (
-    clone,
     ClusterMixin,
-    is_classifier,
-    is_regressor,
-    is_outlier_detector,
     RegressorMixin,
+    clone,
+    is_classifier,
+    is_outlier_detector,
+    is_regressor,
 )
-
-from ..metrics import accuracy_score, adjusted_rand_score, f1_score
-from ..random_projection import BaseRandomProjection
-from ..feature_selection import SelectKBest
-from ..feature_selection import SelectFromModel
-from ..pipeline import make_pipeline
-from ..exceptions import DataConversionWarning
-from ..exceptions import NotFittedError
-from ..exceptions import SkipTestWarning
-from ..model_selection import train_test_split
-from ..model_selection import ShuffleSplit
-from ..model_selection._validation import _safe_split
-from ..metrics.pairwise import rbf_kernel, linear_kernel, pairwise_distances
-from ..utils.fixes import sp_version
-from ..utils.fixes import parse_version
-from ..utils.validation import check_is_fitted
-from ..utils._array_api import _convert_to_numpy, get_namespace, device as array_device
-from ..utils._param_validation import make_constraint
-from ..utils._param_validation import generate_invalid_param_val
-from ..utils._param_validation import InvalidParameterError
-
-from . import shuffle
-from ._tags import (
-    _DEFAULT_TAGS,
-    _safe_tags,
-)
-from .validation import has_fit_parameter, _num_samples
-from ..preprocessing import StandardScaler
-from ..preprocessing import scale
 from ..datasets import (
     load_iris,
     make_blobs,
@@ -80,6 +29,52 @@ from ..datasets import (
     make_multilabel_classification,
     make_regression,
 )
+from ..exceptions import DataConversionWarning, NotFittedError, SkipTestWarning
+from ..feature_selection import SelectFromModel, SelectKBest
+from ..linear_model import (
+    LinearRegression,
+    LogisticRegression,
+    RANSACRegressor,
+    Ridge,
+    SGDRegressor,
+)
+from ..metrics import accuracy_score, adjusted_rand_score, f1_score
+from ..metrics.pairwise import linear_kernel, pairwise_distances, rbf_kernel
+from ..model_selection import ShuffleSplit, train_test_split
+from ..model_selection._validation import _safe_split
+from ..pipeline import make_pipeline
+from ..preprocessing import StandardScaler, scale
+from ..random_projection import BaseRandomProjection
+from ..utils._array_api import _convert_to_numpy, get_namespace
+from ..utils._array_api import device as array_device
+from ..utils._param_validation import (
+    InvalidParameterError,
+    generate_invalid_param_val,
+    make_constraint,
+)
+from ..utils.fixes import parse_version, sp_version
+from ..utils.validation import check_is_fitted
+from . import IS_PYPY, is_scalar_nan, shuffle
+from ._param_validation import Interval
+from ._tags import (
+    _DEFAULT_TAGS,
+    _safe_tags,
+)
+from ._testing import (
+    SkipTest,
+    _get_args,
+    assert_allclose,
+    assert_allclose_dense_sparse,
+    assert_array_almost_equal,
+    assert_array_equal,
+    assert_array_less,
+    assert_raise_message,
+    create_memmap_backed_data,
+    ignore_warnings,
+    raises,
+    set_random_state,
+)
+from .validation import _num_samples, has_fit_parameter
 
 REGRESSION_DATASET = None
 CROSS_DECOMPOSITION = ["PLSCanonical", "PLSRegression", "CCA", "PLSSVD"]
@@ -581,8 +576,8 @@ def check_estimator(estimator=None, generate_only=False):
     independently and report the checks that are failing.
 
     scikit-learn provides a pytest specific decorator,
-    :func:`~sklearn.utils.parametrize_with_checks`, making it easier to test
-    multiple estimators.
+    :func:`~sklearn.utils.estimator_checks.parametrize_with_checks`, making it
+    easier to test multiple estimators.
 
     Parameters
     ----------
@@ -1266,7 +1261,10 @@ def check_dtype_object(name, estimator_orig):
 
     if "string" not in tags["X_types"]:
         X[0, 0] = {"foo": "bar"}
-        msg = "argument must be a string.* number"
+        # This error is raised by:
+        # - `np.asarray` in `check_array`
+        # - `_unique_python` for encoders
+        msg = "argument must be .* string.* number"
         with raises(TypeError, match=msg):
             estimator.fit(X, y)
     else:
@@ -1432,7 +1430,7 @@ def _apply_on_subsets(func, X):
 
     if sparse.issparse(result_full):
         result_full = result_full.A
-        result_by_batch = [x.A for x in result_by_batch]
+        result_by_batch = [x.toarray() for x in result_by_batch]
 
     return np.ravel(result_full), np.ravel(result_by_batch)
 
@@ -3458,7 +3456,6 @@ def _enforce_estimator_tags_y(estimator, y):
         # Create strictly positive y. The minimal increment above 0 is 1, as
         # y could be of integer dtype.
         y += 1 + abs(y.min())
-    # Estimators with a `binary_only` tag only accept up to two unique y values
     if _safe_tags(estimator, key="binary_only") and y.size > 0:
         y = np.where(y == y.flat[0], y, y.flat[0] + 1)
     # Estimators in mono_output_task_error raise ValueError if y is of 1-D
@@ -3478,7 +3475,8 @@ def _enforce_estimator_tags_X(estimator, X, kernel=linear_kernel):
     if _safe_tags(estimator, key="requires_positive_X"):
         X = X - X.min()
     if "categorical" in _safe_tags(estimator, key="X_types"):
-        X = (X - X.min()).astype(np.int32)
+        dtype = np.float64 if _safe_tags(estimator, key="allow_nan") else np.int32
+        X = np.round((X - X.min())).astype(dtype)
 
     if estimator.__class__.__name__ == "SkewedChi2Sampler":
         # SkewedChi2Sampler requires X > -skewdness in transform
@@ -4484,7 +4482,7 @@ def check_set_output_transform_pandas(name, transformer_orig):
         outputs_pandas = _output_from_fit_transform(transformer_pandas, name, X, df, y)
     except ValueError as e:
         # transformer does not support sparse data
-        assert str(e) == "Pandas output does not support sparse data.", e
+        assert "Pandas output does not support sparse data." in str(e), e
         return
 
     for case in outputs_default:
@@ -4493,7 +4491,7 @@ def check_set_output_transform_pandas(name, transformer_orig):
         )
 
 
-def check_global_ouptut_transform_pandas(name, transformer_orig):
+def check_global_output_transform_pandas(name, transformer_orig):
     """Check that setting globally the output of a transformer to pandas lead to the
     right results."""
     try:
@@ -4530,7 +4528,7 @@ def check_global_ouptut_transform_pandas(name, transformer_orig):
             )
     except ValueError as e:
         # transformer does not support sparse data
-        assert str(e) == "Pandas output does not support sparse data.", e
+        assert "Pandas output does not support sparse data." in str(e), e
         return
 
     for case in outputs_default:

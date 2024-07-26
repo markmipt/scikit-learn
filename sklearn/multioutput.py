@@ -26,23 +26,23 @@ from .base import (
     ClassifierMixin,
     MetaEstimatorMixin,
     RegressorMixin,
+    _fit_context,
     clone,
     is_classifier,
-    _fit_context,
 )
 from .model_selection import cross_val_predict
-from .utils import _print_elapsed_time, check_random_state, Bunch
+from .utils import Bunch, _print_elapsed_time, check_random_state
+from .utils._param_validation import HasMethods, StrOptions
 from .utils.metadata_routing import (
     MetadataRouter,
     MethodMapping,
-    process_routing,
     _routing_enabled,
+    process_routing,
 )
 from .utils.metaestimators import available_if
 from .utils.multiclass import check_classification_targets
+from .utils.parallel import Parallel, delayed
 from .utils.validation import _check_fit_params, check_is_fitted, has_fit_parameter
-from .utils.parallel import delayed, Parallel
-from .utils._param_validation import HasMethods, StrOptions
 
 __all__ = [
     "MultiOutputRegressor",
@@ -322,7 +322,7 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
         Returns
         -------
         routing : MetadataRouter
-            A :class:`~utils.metadata_routing.MetadataRouter` encapsulating
+            A :class:`~sklearn.utils.metadata_routing.MetadataRouter` encapsulating
             routing information.
         """
         router = MetadataRouter(owner=self.__class__.__name__).add(
@@ -782,6 +782,11 @@ class ClassifierChain(MetaEstimatorMixin, ClassifierMixin, _BaseChain):
     all of the available features provided to the model plus the predictions
     of models that are earlier in the chain.
 
+    For an example of how to use ``ClassifierChain`` and benefit from its
+    ensemble, see
+    :ref:`ClassifierChain on a yeast dataset
+    <sphx_glr_auto_examples_multioutput_plot_classifier_chain_yeast.py>` example.
+
     Read more in the :ref:`User Guide <classifierchain>`.
 
     .. versionadded:: 0.19
@@ -859,7 +864,7 @@ class ClassifierChain(MetaEstimatorMixin, ClassifierMixin, _BaseChain):
     See Also
     --------
     RegressorChain : Equivalent for regression.
-    MultioutputClassifier : Classifies each output independently rather than
+    MultiOutputClassifier : Classifies each output independently rather than
         chaining.
 
     References
@@ -1006,7 +1011,7 @@ class ClassifierChain(MetaEstimatorMixin, ClassifierMixin, _BaseChain):
         Returns
         -------
         routing : MetadataRouter
-            A :class:`~utils.metadata_routing.MetadataRouter` encapsulating
+            A :class:`~sklearn.utils.metadata_routing.MetadataRouter` encapsulating
             routing information.
         """
         router = MetadataRouter(owner=self.__class__.__name__).add(
@@ -1155,7 +1160,7 @@ class RegressorChain(MetaEstimatorMixin, RegressorMixin, _BaseChain):
         Returns
         -------
         routing : MetadataRouter
-            A :class:`~utils.metadata_routing.MetadataRouter` encapsulating
+            A :class:`~sklearn.utils.metadata_routing.MetadataRouter` encapsulating
             routing information.
         """
         router = MetadataRouter(owner=self.__class__.__name__).add(

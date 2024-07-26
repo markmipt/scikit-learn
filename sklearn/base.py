@@ -5,33 +5,36 @@
 
 import copy
 import functools
+import inspect
+import platform
+import re
 import warnings
 from collections import defaultdict
-import platform
-import inspect
-import re
 
 import numpy as np
 
 from . import __version__
-from ._config import get_config, config_context
+from ._config import config_context, get_config
+from .exceptions import InconsistentVersionWarning
 from .utils import _IS_32BIT
+from .utils._estimator_html_repr import estimator_html_repr
+from .utils._metadata_requests import _MetadataRequester
+from .utils._param_validation import validate_parameter_constraints
 from .utils._set_output import _SetOutputMixin
 from .utils._tags import (
     _DEFAULT_TAGS,
 )
-from .exceptions import InconsistentVersionWarning
-from .utils.validation import check_X_y
-from .utils.validation import check_array
-from .utils.validation import _check_y
-from .utils.validation import _num_features
-from .utils.validation import _check_feature_names_in
-from .utils.validation import _generate_get_feature_names_out
-from .utils.validation import _is_fitted, check_is_fitted
-from .utils._metadata_requests import _MetadataRequester
-from .utils.validation import _get_feature_names
-from .utils._estimator_html_repr import estimator_html_repr
-from .utils._param_validation import validate_parameter_constraints
+from .utils.validation import (
+    _check_feature_names_in,
+    _check_y,
+    _generate_get_feature_names_out,
+    _get_feature_names,
+    _is_fitted,
+    _num_features,
+    check_array,
+    check_is_fitted,
+    check_X_y,
+)
 
 
 def clone(estimator, *, safe=True):
@@ -77,8 +80,9 @@ def _clone_parametrized(estimator, *, safe=True):
     """Default implementation of clone. See :func:`sklearn.base.clone` for details."""
 
     estimator_type = type(estimator)
-    # XXX: not handling dictionaries
-    if estimator_type in (list, tuple, set, frozenset):
+    if estimator_type is dict:
+        return {k: clone(v, safe=safe) for k, v in estimator.items()}
+    elif estimator_type in (list, tuple, set, frozenset):
         return estimator_type([clone(e, safe=safe) for e in estimator])
     elif not hasattr(estimator, "get_params") or isinstance(estimator, type):
         if not safe:
@@ -872,12 +876,12 @@ class BiclusterMixin:
 class TransformerMixin(_SetOutputMixin):
     """Mixin class for all transformers in scikit-learn.
 
-    If :term:`get_feature_names_out` is defined, then `BaseEstimator` will
+    If :term:`get_feature_names_out` is defined, then :class:`BaseEstimator` will
     automatically wrap `transform` and `fit_transform` to follow the `set_output`
     API. See the :ref:`developer_api_set_output` for details.
 
-    :class:`base.OneToOneFeatureMixin` and
-    :class:`base.ClassNamePrefixFeaturesOutMixin` are helpful mixins for
+    :class:`OneToOneFeatureMixin` and
+    :class:`ClassNamePrefixFeaturesOutMixin` are helpful mixins for
     defining :term:`get_feature_names_out`.
     """
 
@@ -919,7 +923,7 @@ class OneToOneFeatureMixin:
     """Provides `get_feature_names_out` for simple transformers.
 
     This mixin assumes there's a 1-to-1 correspondence between input features
-    and output features, such as :class:`~preprocessing.StandardScaler`.
+    and output features, such as :class:`~sklearn.preprocessing.StandardScaler`.
     """
 
     def get_feature_names_out(self, input_features=None):
@@ -950,8 +954,8 @@ class ClassNamePrefixFeaturesOutMixin:
     """Mixin class for transformers that generate their own names by prefixing.
 
     This mixin is useful when the transformer needs to generate its own feature
-    names out, such as :class:`~decomposition.PCA`. For example, if
-    :class:`~decomposition.PCA` outputs 3 features, then the generated feature
+    names out, such as :class:`~sklearn.decomposition.PCA`. For example, if
+    :class:`~sklearn.decomposition.PCA` outputs 3 features, then the generated feature
     names out are: `["pca0", "pca1", "pca2"]`.
 
     This mixin assumes that a `_n_features_out` attribute is defined when the
@@ -969,7 +973,7 @@ class ClassNamePrefixFeaturesOutMixin:
         Parameters
         ----------
         input_features : array-like of str or None, default=None
-            Only used to validate feature names with the names seen in :meth:`fit`.
+            Only used to validate feature names with the names seen in `fit`.
 
         Returns
         -------

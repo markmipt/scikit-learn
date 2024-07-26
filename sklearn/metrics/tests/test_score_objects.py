@@ -1,64 +1,68 @@
-from copy import deepcopy
-import pickle
-import tempfile
-import shutil
-import os
 import numbers
-from unittest.mock import Mock
+import os
+import pickle
+import shutil
+import tempfile
+from copy import deepcopy
 from functools import partial
+from unittest.mock import Mock
 
+import joblib
 import numpy as np
 import pytest
-import joblib
-
 from numpy.testing import assert_allclose
-from sklearn import config_context
-from sklearn.utils._testing import assert_almost_equal
-from sklearn.utils._testing import assert_array_equal
-from sklearn.utils._testing import ignore_warnings
-from sklearn.utils.metadata_routing import MetadataRouter
-from sklearn.tests.test_metadata_routing import assert_request_is_empty
 
+from sklearn import config_context
 from sklearn.base import BaseEstimator
+from sklearn.cluster import KMeans
+from sklearn.datasets import (
+    load_diabetes,
+    make_blobs,
+    make_classification,
+    make_multilabel_classification,
+    make_regression,
+)
+from sklearn.linear_model import LogisticRegression, Perceptron, Ridge
 from sklearn.metrics import (
     accuracy_score,
-    balanced_accuracy_score,
     average_precision_score,
+    balanced_accuracy_score,
     brier_score_loss,
+    check_scoring,
     f1_score,
     fbeta_score,
+    get_scorer,
+    get_scorer_names,
     jaccard_score,
     log_loss,
+    make_scorer,
+    matthews_corrcoef,
     precision_score,
     r2_score,
     recall_score,
     roc_auc_score,
     top_k_accuracy_score,
-    matthews_corrcoef,
 )
 from sklearn.metrics import cluster as cluster_module
-from sklearn.metrics import check_scoring
 from sklearn.metrics._scorer import (
-    _PredictScorer,
-    _PassthroughScorer,
-    _MultimetricScorer,
     _check_multimetric_scoring,
+    _MultimetricScorer,
+    _PassthroughScorer,
+    _PredictScorer,
 )
-from sklearn.metrics import make_scorer, get_scorer, get_scorer_names
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import LinearSVC
-from sklearn.pipeline import make_pipeline
-from sklearn.cluster import KMeans
-from sklearn.linear_model import Ridge, LogisticRegression, Perceptron
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.datasets import make_blobs
-from sklearn.datasets import make_classification, make_regression
-from sklearn.datasets import make_multilabel_classification
-from sklearn.datasets import load_diabetes
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
 from sklearn.multiclass import OneVsRestClassifier
-
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.svm import LinearSVC
+from sklearn.tests.test_metadata_routing import assert_request_is_empty
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.utils._testing import (
+    assert_almost_equal,
+    assert_array_equal,
+    ignore_warnings,
+)
+from sklearn.utils.metadata_routing import MetadataRouter
 
 REGRESSION_SCORERS = [
     "explained_variance",
@@ -537,12 +541,15 @@ def test_thresholded_scorers_multilabel_indicator_data():
 
     # Multi-output multi-class decision_function
     # TODO Is there any yet?
-    clf = DecisionTreeClassifier()
-    clf.fit(X_train, y_train)
-    clf._predict_proba = clf.predict_proba
-    clf.predict_proba = None
-    clf.decision_function = lambda X: [p[:, 1] for p in clf._predict_proba(X)]
+    class TreeWithDecisionFunction(DecisionTreeClassifier):
+        # disable predict_proba
+        predict_proba = None
 
+        def decision_function(self, X):
+            return [p[:, 1] for p in DecisionTreeClassifier.predict_proba(self, X)]
+
+    clf = TreeWithDecisionFunction()
+    clf.fit(X_train, y_train)
     y_proba = clf.decision_function(X_test)
     score1 = get_scorer("roc_auc")(clf, X_test, y_test)
     score2 = roc_auc_score(y_test, np.vstack([p for p in y_proba]).T)
@@ -795,7 +802,19 @@ def test_multimetric_scorer_calls_method_once(
     assert decision_function_func.call_count == expected_decision_func_count
 
 
-def test_multimetric_scorer_calls_method_once_classifier_no_decision():
+@pytest.mark.parametrize(
+    "scorers",
+    [
+        (["roc_auc", "neg_log_loss"]),
+        (
+            {
+                "roc_auc": make_scorer(roc_auc_score, needs_threshold=True),
+                "neg_log_loss": make_scorer(log_loss, needs_proba=True),
+            }
+        ),
+    ],
+)
+def test_multimetric_scorer_calls_method_once_classifier_no_decision(scorers):
     predict_proba_call_cnt = 0
 
     class MockKNeighborsClassifier(KNeighborsClassifier):
@@ -810,7 +829,6 @@ def test_multimetric_scorer_calls_method_once_classifier_no_decision():
     clf = MockKNeighborsClassifier(n_neighbors=1)
     clf.fit(X, y)
 
-    scorers = ["roc_auc", "neg_log_loss"]
     scorer_dict = _check_multimetric_scoring(clf, scorers)
     scorer = _MultimetricScorer(scorers=scorer_dict)
     scorer(clf, X, y)
@@ -833,7 +851,7 @@ def test_multimetric_scorer_calls_method_once_regressor_threshold():
     clf = MockDecisionTreeRegressor()
     clf.fit(X, y)
 
-    scorers = {"neg_mse": "neg_mean_squared_error", "r2": "roc_auc"}
+    scorers = {"neg_mse": "neg_mean_squared_error", "r2": "r2"}
     scorer_dict = _check_multimetric_scoring(clf, scorers)
     scorer = _MultimetricScorer(scorers=scorer_dict)
     scorer(clf, X, y)
@@ -1342,3 +1360,18 @@ def test_kwargs_without_metadata_routing_error():
     with config_context(enable_metadata_routing=False):
         with pytest.raises(ValueError, match="kwargs is only supported if"):
             scorer(clf, X, y, param="blah")
+
+
+def test_get_scorer_multilabel_indicator():
+    """Check that our scorer deal with multi-label indicator matrices.
+
+    Non-regression test for:
+    https://github.com/scikit-learn/scikit-learn/issues/26817
+    """
+    X, Y = make_multilabel_classification(n_samples=72, n_classes=3, random_state=0)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, random_state=0)
+
+    estimator = KNeighborsClassifier().fit(X_train, Y_train)
+
+    score = get_scorer("average_precision")(estimator, X_test, Y_test)
+    assert score > 0.8

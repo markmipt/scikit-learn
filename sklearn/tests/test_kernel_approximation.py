@@ -1,21 +1,28 @@
 import re
 
 import numpy as np
-from scipy.sparse import csr_matrix
 import pytest
+from scipy.sparse import csr_matrix
 
-from sklearn.utils._testing import assert_array_equal
-from sklearn.utils._testing import assert_array_almost_equal
-from sklearn.utils._testing import assert_allclose
-
-from sklearn.metrics.pairwise import kernel_metrics
-from sklearn.kernel_approximation import RBFSampler
-from sklearn.kernel_approximation import AdditiveChi2Sampler
-from sklearn.kernel_approximation import SkewedChi2Sampler
-from sklearn.kernel_approximation import Nystroem
-from sklearn.kernel_approximation import PolynomialCountSketch
 from sklearn.datasets import make_classification
-from sklearn.metrics.pairwise import polynomial_kernel, rbf_kernel, chi2_kernel
+from sklearn.kernel_approximation import (
+    AdditiveChi2Sampler,
+    Nystroem,
+    PolynomialCountSketch,
+    RBFSampler,
+    SkewedChi2Sampler,
+)
+from sklearn.metrics.pairwise import (
+    chi2_kernel,
+    kernel_metrics,
+    polynomial_kernel,
+    rbf_kernel,
+)
+from sklearn.utils._testing import (
+    assert_allclose,
+    assert_array_almost_equal,
+    assert_array_equal,
+)
 
 # generate data
 rng = np.random.RandomState(0)
@@ -106,8 +113,8 @@ def test_additive_chi2_sampler():
     X_sp_trans = transform.fit_transform(csr_matrix(X))
     Y_sp_trans = transform.transform(csr_matrix(Y))
 
-    assert_array_equal(X_trans, X_sp_trans.A)
-    assert_array_equal(Y_trans, Y_sp_trans.A)
+    assert_array_equal(X_trans, X_sp_trans.toarray())
+    assert_array_equal(Y_trans, Y_sp_trans.toarray())
 
     # test error is raised on negative input
     Y_neg = Y.copy()

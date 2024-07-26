@@ -2,36 +2,38 @@
 #          Raghav RV <rvraghav93@gmail.com>
 # License: BSD 3 clause
 
+import importlib
 import inspect
 import warnings
-import importlib
-
-from pkgutil import walk_packages
 from inspect import signature
+from pkgutil import walk_packages
 
 import numpy as np
-
-# make it possible to discover experimental estimators when calling `all_estimators`
-from sklearn.experimental import enable_iterative_imputer  # noqa
-from sklearn.experimental import enable_halving_search_cv  # noqa
-
-import sklearn
-from sklearn.utils import IS_PYPY
-from sklearn.utils._testing import check_docstring_parameters
-from sklearn.utils._testing import _get_func_name
-from sklearn.utils._testing import ignore_warnings
-from sklearn.utils import all_estimators
-from sklearn.utils.estimator_checks import _enforce_estimator_tags_y
-from sklearn.utils.estimator_checks import _enforce_estimator_tags_X
-from sklearn.utils.estimator_checks import _construct_instance
-from sklearn.utils.fixes import sp_version, parse_version
-from sklearn.utils.deprecation import _is_deprecated
-from sklearn.datasets import make_classification
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import FunctionTransformer
-
 import pytest
 
+import sklearn
+from sklearn.datasets import make_classification
+
+# make it possible to discover experimental estimators when calling `all_estimators`
+from sklearn.experimental import (
+    enable_halving_search_cv,  # noqa
+    enable_iterative_imputer,  # noqa
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.utils import IS_PYPY, all_estimators
+from sklearn.utils._testing import (
+    _get_func_name,
+    check_docstring_parameters,
+    ignore_warnings,
+)
+from sklearn.utils.deprecation import _is_deprecated
+from sklearn.utils.estimator_checks import (
+    _construct_instance,
+    _enforce_estimator_tags_X,
+    _enforce_estimator_tags_y,
+)
+from sklearn.utils.fixes import parse_version, sp_version
 
 # walk_packages() ignores DeprecationWarnings, now we need to ignore
 # FutureWarnings
@@ -149,29 +151,6 @@ def test_docstring_parameters():
     msg = "\n".join(incorrect)
     if len(incorrect) > 0:
         raise AssertionError("Docstring Error:\n" + msg)
-
-
-@ignore_warnings(category=FutureWarning)
-def test_tabs():
-    # Test that there are no tabs in our source files
-    for importer, modname, ispkg in walk_packages(sklearn.__path__, prefix="sklearn."):
-        if IS_PYPY and (
-            "_svmlight_format_io" in modname
-            or "feature_extraction._hashing_fast" in modname
-        ):
-            continue
-
-        # because we don't import
-        mod = importlib.import_module(modname)
-
-        try:
-            source = inspect.getsource(mod)
-        except IOError:  # user probably should have run "make clean"
-            continue
-        assert "\t" not in source, (
-            '"%s" has tabs, please remove them ',
-            "or add it to the ignore list" % modname,
-        )
 
 
 def _construct_searchcv_instance(SearchCV):

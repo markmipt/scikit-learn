@@ -7,20 +7,18 @@
 
 import warnings
 from math import sqrt
-
 from numbers import Integral, Real
+
 import numpy as np
 from scipy import linalg
 from scipy.linalg.lapack import get_lapack_funcs
 
-from ._base import LinearModel, _pre_fit, _deprecate_normalize
-from ..base import RegressorMixin, MultiOutputMixin
-from ..base import _fit_context
-from ..utils import as_float_array, check_array
-from ..utils.parallel import delayed, Parallel
-from ..utils._param_validation import Hidden, Interval, StrOptions
-from ..utils._param_validation import validate_params
+from ..base import MultiOutputMixin, RegressorMixin, _fit_context
 from ..model_selection import check_cv
+from ..utils import as_float_array, check_array
+from ..utils._param_validation import Hidden, Interval, StrOptions, validate_params
+from ..utils.parallel import Parallel, delayed
+from ._base import LinearModel, _deprecate_normalize, _pre_fit
 
 premature = (
     "Orthogonal matching pursuit ended prematurely due to linear"
@@ -293,7 +291,8 @@ def _gram_omp(
         "copy_X": ["boolean"],
         "return_path": ["boolean"],
         "return_n_iter": ["boolean"],
-    }
+    },
+    prefer_skip_nested_validation=True,
 )
 def orthogonal_mp(
     X,
@@ -333,7 +332,7 @@ def orthogonal_mp(
         default) this value is set to 10% of n_features.
 
     tol : float, default=None
-        Maximum norm of the residual. If not None, overrides n_nonzero_coefs.
+        Maximum squared norm of the residual. If not None, overrides n_nonzero_coefs.
 
     precompute : 'auto' or bool, default=False
         Whether to perform precomputations. Improves performance when n_targets
@@ -480,7 +479,8 @@ def orthogonal_mp_gram(
         default) this value is set to 10% of n_features.
 
     tol : float, default=None
-        Maximum norm of the residual. If not None, overrides n_nonzero_coefs.
+        Maximum squared norm of the residual. If not `None`,
+        overrides `n_nonzero_coefs`.
 
     norms_squared : array-like of shape (n_targets,), default=None
         Squared L2 norms of the lines of y. Required if tol is not None.
@@ -612,7 +612,7 @@ class OrthogonalMatchingPursuit(MultiOutputMixin, RegressorMixin, LinearModel):
         default) this value is set to 10% of n_features.
 
     tol : float, default=None
-        Maximum norm of the residual. If not None, overrides n_nonzero_coefs.
+        Maximum squared norm of the residual. If not None, overrides n_nonzero_coefs.
 
     fit_intercept : bool, default=True
         Whether to calculate the intercept for this model. If set
@@ -935,7 +935,7 @@ class OrthogonalMatchingPursuitCV(RegressorMixin, LinearModel):
         - :term:`CV splitter`,
         - An iterable yielding (train, test) splits as arrays of indices.
 
-        For integer/None inputs, :class:`KFold` is used.
+        For integer/None inputs, :class:`~sklearn.model_selection.KFold` is used.
 
         Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
