@@ -42,4 +42,3 @@ Usage example
 Citation
 ~~~~~~~~
 If you use modified decision tree in a scientific publication, we would appreciate citations:  doi:XXX 
-If you use scikit-learn in a scientific publication, we would appreciate citations: https://scikit-learn.org/stable/about.html#citing-scikit-learn
