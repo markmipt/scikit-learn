@@ -14,6 +14,9 @@ Since this fork is outdated version of original scikit-learn package, we suggest
 pip3 install https://github.com/markmipt/scikit-learn/archive/refs/heads/min_groups_leaf_131.zip --upgrade --force
 
 
+If the command above does not work properly, please see detailed instructions ("Building from source") from the scikit-learn team: https://scikit-learn.org/1.3/developers/advanced_installation.html 
+
+
 Important links
 ~~~~~~~~~~~~~~~
 
