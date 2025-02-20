@@ -265,7 +265,7 @@ class IsolationForest(OutlierMixin, BaseBagging):
         return {"prefer": "threads"}
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y=None, sample_weight=None):
+    def fit(self, X, y=None, groups=None, sample_weight=None):
         """
         Fit estimator.
 

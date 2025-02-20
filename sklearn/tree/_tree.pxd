@@ -98,6 +98,8 @@ cdef class TreeBuilder:
     cdef SIZE_t min_samples_split       # Minimum number of samples in an internal node
     cdef SIZE_t min_samples_leaf        # Minimum number of samples in a leaf
     cdef double min_weight_leaf         # Minimum weight in a leaf
+    cdef SIZE_t min_groups_leaf         # Minimum number of groups in a leaf
+    cdef double min_weight_groups
     cdef SIZE_t max_depth               # Maximal tree depth
     cdef double min_impurity_decrease   # Impurity threshold for early stopping
 
@@ -106,6 +108,7 @@ cdef class TreeBuilder:
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=*,
         const unsigned char[::1] missing_values_in_feature_mask=*,
     )
@@ -114,5 +117,6 @@ cdef class TreeBuilder:
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
     )

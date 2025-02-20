@@ -15,6 +15,10 @@ from ._criterion cimport Criterion
 
 from libc.stdlib cimport qsort
 from libc.string cimport memcpy
+from libcpp.set cimport set as cppset
+from libcpp.map cimport map as cppmap
+from cython.operator cimport dereference as deref, preincrement as inc, postincrement
+
 from libc.math cimport isnan
 from cython cimport final
 
@@ -26,6 +30,7 @@ from ._utils cimport log
 from ._utils cimport rand_int
 from ._utils cimport rand_uniform
 from ._utils cimport RAND_R_MAX
+
 
 cdef double INFINITY = np.inf
 
@@ -55,7 +60,7 @@ cdef class Splitter:
 
     def __cinit__(self, Criterion criterion, SIZE_t max_features,
                   SIZE_t min_samples_leaf, double min_weight_leaf,
-                  object random_state):
+                  SIZE_t min_groups_leaf, double min_weight_groups, object random_state):
         """
         Parameters
         ----------
@@ -87,6 +92,8 @@ cdef class Splitter:
         self.max_features = max_features
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_leaf = min_weight_leaf
+        self.min_weight_groups = min_weight_groups
+        self.min_groups_leaf = min_groups_leaf
         self.random_state = random_state
 
     def __getstate__(self):
@@ -106,6 +113,7 @@ cdef class Splitter:
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
         const unsigned char[::1] missing_values_in_feature_mask,
     ) except -1:
@@ -170,6 +178,7 @@ cdef class Splitter:
         self.constant_features = np.empty(n_features, dtype=np.intp)
 
         self.y = y
+        self.groups = groups
 
         self.sample_weight = sample_weight
         if missing_values_in_feature_mask is not None:
@@ -284,6 +293,12 @@ cdef inline int node_split_best(
     cdef SIZE_t n_searches
     cdef SIZE_t n_left, n_right
     cdef bint missing_go_to_left
+    cdef double max_r_gr_num
+    cdef double max_l_gr_num
+    cdef double min_r_gr_num
+    cdef double min_l_gr_num
+    cdef double cur_gr_num
+    cdef double max_gr_num
 
     cdef SIZE_t[::1] samples = splitter.samples
     cdef SIZE_t[::1] features = splitter.features
@@ -293,8 +308,18 @@ cdef inline int node_split_best(
     cdef DTYPE_t[::1] feature_values = splitter.feature_values
     cdef SIZE_t max_features = splitter.max_features
     cdef SIZE_t min_samples_leaf = splitter.min_samples_leaf
+    cdef SIZE_t min_groups_leaf = splitter.min_groups_leaf
     cdef double min_weight_leaf = splitter.min_weight_leaf
+    cdef double min_weight_groups = splitter.min_weight_groups
     cdef UINT32_t* random_state = &splitter.rand_r_state
+
+    cdef cppset[INT32_t] sl
+    cdef cppset[INT32_t] sr
+    cdef cppset[INT32_t] slr
+    cdef cppmap[INT32_t, INT32_t] sml
+    cdef cppmap[INT32_t, INT32_t] smr
+    cdef cppmap[INT32_t, INT32_t] smlr
+    cdef cppmap[INT32_t, INT32_t].iterator it
 
     cdef SplitRecord best_split, current_split
     cdef double current_proxy_improvement = -INFINITY
@@ -394,6 +419,7 @@ cdef inline int node_split_best(
         # optimal split.
         n_searches = 2 if has_missing else 1
 
+
         for i in range(n_searches):
             missing_go_to_left = i == 1
             criterion.missing_go_to_left = missing_go_to_left
@@ -414,9 +440,46 @@ cdef inline int node_split_best(
                     n_left = p - start
                     n_right = end_non_missing - p + n_missing
 
+
                 # Reject if min_samples_leaf is not guaranteed
                 if n_left < min_samples_leaf or n_right < min_samples_leaf:
                     continue
+
+
+                
+                sl = cppset[INT32_t]()
+                sr = cppset[INT32_t]()
+                smlr = cppmap[INT32_t, INT32_t]()
+
+
+                for ii in range(start, p):
+                    sl.insert(splitter.groups[samples[ii]])
+
+                for ii in range(p, end_non_missing):
+                    sr.insert(splitter.groups[samples[ii]])
+
+                for ii in range(start, end_non_missing):
+                    smlr[splitter.groups[samples[ii]]] += 1
+
+
+                it = smlr.begin()
+
+                while(it != smlr.end()):
+                    if deref(it).second < 2:
+                        sl.insert(deref(it).first)
+                        sr.insert(deref(it).first)
+
+                    postincrement(it) # Increment the iterator to the net element
+
+                
+
+
+
+
+                # Reject if min_groups_leaf is not satisfied
+                if sl.size() < min_groups_leaf or sr.size() < min_groups_leaf:
+                    continue
+                   
 
                 current_split.pos = p
                 criterion.update(current_split.pos)
@@ -458,6 +521,7 @@ cdef inline int node_split_best(
             missing_go_to_left = 0
 
             if not (n_left < min_samples_leaf or n_right < min_samples_leaf):
+
                 criterion.missing_go_to_left = missing_go_to_left
                 criterion.update(p)
 
@@ -649,9 +713,15 @@ cdef inline int node_split_random(
     cdef SIZE_t n_features = splitter.n_features
 
     cdef SIZE_t max_features = splitter.max_features
-    cdef SIZE_t min_samples_leaf = splitter.min_samples_leaf
-    cdef double min_weight_leaf = splitter.min_weight_leaf
     cdef UINT32_t* random_state = &splitter.rand_r_state
+
+    cdef SIZE_t min_samples_leaf = splitter.min_samples_leaf
+    cdef SIZE_t min_groups_leaf = splitter.min_groups_leaf
+    cdef double min_weight_leaf = splitter.min_weight_leaf
+    cdef double min_weight_groups = splitter.min_weight_groups
+
+
+    cdef SIZE_t[::1] samples = splitter.samples
 
     cdef SplitRecord best_split, current_split
     cdef double current_proxy_improvement = - INFINITY
@@ -669,6 +739,20 @@ cdef inline int node_split_random(
     cdef SIZE_t n_visited_features = 0
     cdef DTYPE_t min_feature_value
     cdef DTYPE_t max_feature_value
+
+    cdef double max_r_gr_num
+    cdef double max_l_gr_num
+    cdef double min_r_gr_num
+    cdef double min_l_gr_num
+    cdef double cur_gr_num
+    cdef double max_gr_num
+
+    cdef cppset[INT32_t] sl
+    cdef cppset[INT32_t] sr
+    cdef cppset[INT32_t] slr
+    cdef cppmap[INT32_t, INT32_t] sml
+    cdef cppmap[INT32_t, INT32_t] smr
+    cdef cppmap[INT32_t, INT32_t] smlr
 
     _init_split(&best_split, end)
 
@@ -745,10 +829,33 @@ cdef inline int node_split_random(
         # Partition
         current_split.pos = partitioner.partition_samples(current_split.threshold)
 
+
+
+
+
+
+
         # Reject if min_samples_leaf is not guaranteed
         if (((current_split.pos - start) < min_samples_leaf) or
                 ((end - current_split.pos) < min_samples_leaf)):
+                continue
+
+        
+
+        sl = cppset[INT32_t]()
+        sr = cppset[INT32_t]()
+
+        for ii in range(start, current_split.pos):
+            sl.insert(splitter.groups[samples[ii]])
+
+        for ii in range(current_split.pos, end):
+            sr.insert(splitter.groups[samples[ii]])
+
+
+        # Reject if min_groups_leaf is not satisfied
+        if sl.size() < min_groups_leaf or sr.size() < min_groups_leaf:
             continue
+
 
         # Evaluate split
         # At this point, the criterion has a view into the samples that was partitioned
@@ -1438,10 +1545,11 @@ cdef class BestSplitter(Splitter):
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
         const unsigned char[::1] missing_values_in_feature_mask,
     ) except -1:
-        Splitter.init(self, X, y, sample_weight, missing_values_in_feature_mask)
+        Splitter.init(self, X, y, groups, sample_weight, missing_values_in_feature_mask)
         self.partitioner = DensePartitioner(
             X, self.samples, self.feature_values, missing_values_in_feature_mask
         )
@@ -1464,10 +1572,11 @@ cdef class BestSparseSplitter(Splitter):
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
         const unsigned char[::1] missing_values_in_feature_mask,
     ) except -1:
-        Splitter.init(self, X, y, sample_weight, missing_values_in_feature_mask)
+        Splitter.init(self, X, y, groups, sample_weight, missing_values_in_feature_mask)
         self.partitioner = SparsePartitioner(
             X, self.samples, self.n_samples, self.feature_values, missing_values_in_feature_mask
         )
@@ -1490,10 +1599,11 @@ cdef class RandomSplitter(Splitter):
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
         const unsigned char[::1] missing_values_in_feature_mask,
     ) except -1:
-        Splitter.init(self, X, y, sample_weight, missing_values_in_feature_mask)
+        Splitter.init(self, X, y, groups, sample_weight, missing_values_in_feature_mask)
         self.partitioner = DensePartitioner(
             X, self.samples, self.feature_values, missing_values_in_feature_mask
         )
@@ -1516,10 +1626,11 @@ cdef class RandomSparseSplitter(Splitter):
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
         const unsigned char[::1] missing_values_in_feature_mask,
     ) except -1:
-        Splitter.init(self, X, y, sample_weight, missing_values_in_feature_mask)
+        Splitter.init(self, X, y, groups, sample_weight, missing_values_in_feature_mask)
         self.partitioner = SparsePartitioner(
             X, self.samples, self.n_samples, self.feature_values, missing_values_in_feature_mask
         )

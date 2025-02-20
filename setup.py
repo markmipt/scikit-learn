@@ -211,7 +211,7 @@ extension_config = {
     "cluster._hdbscan": [
         {"sources": ["_linkage.pyx"], "include_np": True},
         {"sources": ["_reachability.pyx"], "include_np": True},
-        {"sources": ["_tree.pyx"], "include_np": True},
+        {"sources": ["_tree.pyx"], "language": "c++", "include_np": True},
     ],
     "datasets": [
         {
@@ -225,17 +225,17 @@ extension_config = {
         {"sources": ["_cdnmf_fast.pyx"], "include_np": True},
     ],
     "ensemble": [
-        {"sources": ["_gradient_boosting.pyx"], "include_np": True},
+        {"sources": ["_gradient_boosting.pyx"], "language": "c++", "include_np": True},
     ],
     "ensemble._hist_gradient_boosting": [
-        {"sources": ["_gradient_boosting.pyx"], "include_np": True},
-        {"sources": ["histogram.pyx"], "include_np": True},
-        {"sources": ["splitting.pyx"], "include_np": True},
-        {"sources": ["_binning.pyx"], "include_np": True},
-        {"sources": ["_predictor.pyx"], "include_np": True},
-        {"sources": ["_bitset.pyx"], "include_np": True},
-        {"sources": ["common.pyx"], "include_np": True},
-        {"sources": ["utils.pyx"], "include_np": True},
+        {"sources": ["_gradient_boosting.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["histogram.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["splitting.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_binning.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_predictor.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_bitset.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["common.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["utils.pyx"], "language": "c++", "include_np": True},
     ],
     "feature_extraction": [
         {"sources": ["_hashing_fast.pyx"], "language": "c++", "include_np": True},
@@ -309,7 +309,7 @@ extension_config = {
         {"sources": ["_ball_tree.pyx"], "include_np": True},
         {"sources": ["_kd_tree.pyx"], "include_np": True},
         {"sources": ["_partition_nodes.pyx"], "language": "c++", "include_np": True},
-        {"sources": ["_quad_tree.pyx"], "include_np": True},
+        {"sources": ["_quad_tree.pyx"], "language": "c++", "include_np": True},
     ],
     "svm": [
         {
@@ -377,9 +377,9 @@ extension_config = {
             "include_np": True,
             "optimization_level": "O3",
         },
-        {"sources": ["_splitter.pyx"], "include_np": True, "optimization_level": "O3"},
-        {"sources": ["_criterion.pyx"], "include_np": True, "optimization_level": "O3"},
-        {"sources": ["_utils.pyx"], "include_np": True, "optimization_level": "O3"},
+        {"sources": ["_splitter.pyx"], "language": "c++", "include_np": True, "optimization_level": "O3"},
+        {"sources": ["_criterion.pyx"], "language": "c++", "include_np": True, "optimization_level": "O3"},
+        {"sources": ["_utils.pyx"], "language": "c++", "include_np": True, "optimization_level": "O3"},
     ],
     "utils": [
         {"sources": ["sparsefuncs_fast.pyx"], "include_np": True},

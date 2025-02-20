@@ -111,6 +111,13 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
             Interval(Integral, 1, None, closed="left"),
             Interval(RealNotInt, 0.0, 1.0, closed="neither"),
         ],
+        "min_groups_leaf": [
+            Interval(Integral, 1, None, closed="left"),
+            Interval(RealNotInt, 0.0, 1.0, closed="neither"),
+        ],
+        "min_weight_groups": [
+            Interval(Real, 0.0, 1.0, closed="both"), 
+        ],
         "min_weight_fraction_leaf": [Interval(Real, 0.0, 0.5, closed="both")],
         "max_features": [
             Interval(Integral, 1, None, closed="left"),
@@ -133,6 +140,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         max_depth,
         min_samples_split,
         min_samples_leaf,
+        min_groups_leaf,
+        min_weight_groups,
         min_weight_fraction_leaf,
         max_features,
         max_leaf_nodes,
@@ -146,6 +155,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
@@ -222,6 +233,7 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self,
         X,
         y,
+        groups,
         sample_weight=None,
         check_input=True,
         missing_values_in_feature_mask=None,
@@ -308,6 +320,9 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
             y = np.ascontiguousarray(y, dtype=DOUBLE)
 
         max_depth = np.iinfo(np.int32).max if self.max_depth is None else self.max_depth
+
+        min_groups_leaf = self.min_groups_leaf
+        min_weight_groups = self.min_weight_groups
 
         if isinstance(self.min_samples_leaf, numbers.Integral):
             min_samples_leaf = self.min_samples_leaf
@@ -406,6 +421,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                 self.max_features_,
                 min_samples_leaf,
                 min_weight_leaf,
+                min_groups_leaf,
+                min_weight_groups,
                 random_state,
             )
 
@@ -426,6 +443,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                 min_samples_split,
                 min_samples_leaf,
                 min_weight_leaf,
+                min_groups_leaf,
+                min_weight_groups,
                 max_depth,
                 self.min_impurity_decrease,
             )
@@ -435,12 +454,14 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                 min_samples_split,
                 min_samples_leaf,
                 min_weight_leaf,
+                min_groups_leaf,
+                min_weight_groups,
                 max_depth,
                 max_leaf_nodes,
                 self.min_impurity_decrease,
             )
 
-        builder.build(self.tree_, X, y, sample_weight, missing_values_in_feature_mask)
+        builder.build(self.tree_, X, y, groups, sample_weight, missing_values_in_feature_mask)
 
         if self.n_outputs_ == 1 and is_classifier(self):
             self.n_classes_ = self.n_classes_[0]
@@ -903,6 +924,8 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         min_samples_split=2,
         min_samples_leaf=1,
         min_weight_fraction_leaf=0.0,
+        min_groups_leaf=1,
+        min_weight_groups=0.0,
         max_features=None,
         random_state=None,
         max_leaf_nodes=None,
@@ -916,6 +939,8 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             max_depth=max_depth,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_groups_leaf=min_groups_leaf,
+            min_weight_groups=min_weight_groups,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_features=max_features,
             max_leaf_nodes=max_leaf_nodes,
@@ -926,7 +951,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         )
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y, sample_weight=None, check_input=True):
+    def fit(self, X, y, groups, sample_weight=None, check_input=True):
         """Build a decision tree classifier from the training set (X, y).
 
         Parameters
@@ -959,6 +984,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         super()._fit(
             X,
             y,
+            groups,
             sample_weight=sample_weight,
             check_input=check_input,
         )
@@ -1266,6 +1292,8 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.0,
         min_weight_fraction_leaf=0.0,
         max_features=None,
         random_state=None,
@@ -1279,6 +1307,8 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
             max_depth=max_depth,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_groups_leaf=min_groups_leaf,
+            min_weight_groups=min_weight_groups,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_features=max_features,
             max_leaf_nodes=max_leaf_nodes,
@@ -1288,7 +1318,7 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         )
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y, sample_weight=None, check_input=True):
+    def fit(self, X, y, groups, sample_weight=None, check_input=True):
         """Build a decision tree regressor from the training set (X, y).
 
         Parameters
@@ -1320,6 +1350,7 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         super()._fit(
             X,
             y,
+            groups,
             sample_weight=sample_weight,
             check_input=check_input,
         )
@@ -1592,6 +1623,8 @@ class ExtraTreeClassifier(DecisionTreeClassifier):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.0,
         min_weight_fraction_leaf=0.0,
         max_features="sqrt",
         random_state=None,
@@ -1606,6 +1639,8 @@ class ExtraTreeClassifier(DecisionTreeClassifier):
             max_depth=max_depth,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_groups_leaf=min_groups_leaf,
+            min_weight_groups=min_weight_groups,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_features=max_features,
             max_leaf_nodes=max_leaf_nodes,
@@ -1820,6 +1855,8 @@ class ExtraTreeRegressor(DecisionTreeRegressor):
         max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.0,
         min_weight_fraction_leaf=0.0,
         max_features=1.0,
         random_state=None,
@@ -1833,6 +1870,8 @@ class ExtraTreeRegressor(DecisionTreeRegressor):
             max_depth=max_depth,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_groups_leaf=min_groups_leaf,
+            min_weight_groups=min_weight_groups,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_features=max_features,
             max_leaf_nodes=max_leaf_nodes,

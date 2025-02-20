@@ -92,6 +92,7 @@ cdef class TreeBuilder:
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=None,
         const unsigned char[::1] missing_values_in_feature_mask=None,
     ):
@@ -102,6 +103,7 @@ cdef class TreeBuilder:
         self,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight,
     ):
         """Check input dtype, layout and format"""
@@ -152,11 +154,13 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
     """Build a decision tree in depth-first fashion."""
 
     def __cinit__(self, Splitter splitter, SIZE_t min_samples_split,
-                  SIZE_t min_samples_leaf, double min_weight_leaf,
+                  SIZE_t min_samples_leaf, double min_weight_leaf, SIZE_t min_groups_leaf, double min_weight_groups,
                   SIZE_t max_depth, double min_impurity_decrease):
         self.splitter = splitter
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_leaf = min_weight_leaf
         self.max_depth = max_depth
         self.min_impurity_decrease = min_impurity_decrease
@@ -166,13 +170,14 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=None,
         const unsigned char[::1] missing_values_in_feature_mask=None,
     ):
         """Build a decision tree from the training set (X, y)."""
 
         # check input
-        X, y, sample_weight = self._check_input(X, y, sample_weight)
+        X, y, sample_weight = self._check_input(X, y, groups, sample_weight)
 
         # Initial capacity
         cdef int init_capacity
@@ -188,12 +193,14 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef Splitter splitter = self.splitter
         cdef SIZE_t max_depth = self.max_depth
         cdef SIZE_t min_samples_leaf = self.min_samples_leaf
+        cdef SIZE_t min_groups_leaf = self.min_groups_leaf
+        cdef double min_weight_groups = self.min_weight_groups
         cdef double min_weight_leaf = self.min_weight_leaf
         cdef SIZE_t min_samples_split = self.min_samples_split
         cdef double min_impurity_decrease = self.min_impurity_decrease
 
         # Recursive partition (without actual recursion)
-        splitter.init(X, y, sample_weight, missing_values_in_feature_mask)
+        splitter.init(X, y, groups, sample_weight, missing_values_in_feature_mask)
 
         cdef SIZE_t start
         cdef SIZE_t end
@@ -364,20 +371,21 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
         Tree tree,
         object X,
         const DOUBLE_t[:, ::1] y,
+        const INT32_t[:] groups,
         const DOUBLE_t[:] sample_weight=None,
         const unsigned char[::1] missing_values_in_feature_mask=None,
     ):
         """Build a decision tree from the training set (X, y)."""
 
         # check input
-        X, y, sample_weight = self._check_input(X, y, sample_weight)
+        X, y, sample_weight = self._check_input(X, y, groups, sample_weight)
 
         # Parameters
         cdef Splitter splitter = self.splitter
         cdef SIZE_t max_leaf_nodes = self.max_leaf_nodes
 
         # Recursive partition (without actual recursion)
-        splitter.init(X, y, sample_weight, missing_values_in_feature_mask)
+        splitter.init(X, y, groups, sample_weight, missing_values_in_feature_mask)
 
         cdef vector[FrontierRecord] frontier
         cdef FrontierRecord record

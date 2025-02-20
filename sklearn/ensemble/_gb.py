@@ -148,6 +148,8 @@ class BaseGradientBoosting(BaseEnsemble, metaclass=ABCMeta):
         criterion,
         min_samples_split,
         min_samples_leaf,
+        min_groups_leaf,
+        min_weight_groups,
         min_weight_fraction_leaf,
         max_depth,
         min_impurity_decrease,
@@ -170,6 +172,8 @@ class BaseGradientBoosting(BaseEnsemble, metaclass=ABCMeta):
         self.criterion = criterion
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_groups_leaf = min_groups_leaf
+        self.min_weight_groups = min_weight_groups
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.subsample = subsample
         self.max_features = max_features
@@ -229,6 +233,8 @@ class BaseGradientBoosting(BaseEnsemble, metaclass=ABCMeta):
                 max_depth=self.max_depth,
                 min_samples_split=self.min_samples_split,
                 min_samples_leaf=self.min_samples_leaf,
+                min_groups_leaf = min_groups_leaf,
+                min_weight_groups = min_weight_groups,
                 min_weight_fraction_leaf=self.min_weight_fraction_leaf,
                 min_impurity_decrease=self.min_impurity_decrease,
                 max_features=self.max_features,
@@ -1172,6 +1178,8 @@ class GradientBoostingClassifier(ClassifierMixin, BaseGradientBoosting):
         criterion="friedman_mse",
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_depth=3,
         min_impurity_decrease=0.0,
@@ -1193,6 +1201,8 @@ class GradientBoostingClassifier(ClassifierMixin, BaseGradientBoosting):
             criterion=criterion,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_groups_leaf = min_groups_leaf,
+            min_weight_groups = min_weight_groups,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_depth=max_depth,
             init=init,
@@ -1724,6 +1734,8 @@ class GradientBoostingRegressor(RegressorMixin, BaseGradientBoosting):
         criterion="friedman_mse",
         min_samples_split=2,
         min_samples_leaf=1,
+        min_groups_leaf=1,
+        min_weight_groups=0.1,
         min_weight_fraction_leaf=0.0,
         max_depth=3,
         min_impurity_decrease=0.0,
@@ -1746,6 +1758,8 @@ class GradientBoostingRegressor(RegressorMixin, BaseGradientBoosting):
             criterion=criterion,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_groups_leaf = min_groups_leaf,
+            min_weight_groups = min_weight_groups,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_depth=max_depth,
             init=init,

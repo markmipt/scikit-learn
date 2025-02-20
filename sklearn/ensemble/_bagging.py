@@ -303,7 +303,7 @@ class BaseBagging(BaseEnsemble, metaclass=ABCMeta):
         # BaseBagging.estimator is not validated yet
         prefer_skip_nested_validation=False
     )
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, groups, sample_weight=None):
         """Build a Bagging ensemble of estimators from the training set (X, y).
 
         Parameters
@@ -335,7 +335,7 @@ class BaseBagging(BaseEnsemble, metaclass=ABCMeta):
             force_all_finite=False,
             multi_output=True,
         )
-        return self._fit(X, y, self.max_samples, sample_weight=sample_weight)
+        return self._fit(X, y, groups, self.max_samples, sample_weight=sample_weight)
 
     def _parallel_args(self):
         return {}
