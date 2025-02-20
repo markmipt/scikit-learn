@@ -256,9 +256,9 @@ extension_config = {
     #         "include_np": True,
     #     },
     # ],
-    # "metrics.cluster": [
-    #     {"sources": ["_expected_mutual_info_fast.pyx"], "include_np": True},
-    # ],
+    "metrics.cluster": [
+        {"sources": ["_expected_mutual_info_fast.pyx"], "include_np": True},
+    ],
     # "metrics._pairwise_distances_reduction": [
     #     {
     #         "sources": ["_datasets_pair.pyx.tp", "_datasets_pair.pxd.tp"],
@@ -305,71 +305,71 @@ extension_config = {
     #         "extra_compile_args": ["-std=c++11"],
     #     },
     # ],
-    # "neighbors": [
-    #     {"sources": ["_ball_tree.pyx"], "include_np": True},
-    #     {"sources": ["_kd_tree.pyx"], "include_np": True},
-    #     {"sources": ["_partition_nodes.pyx"], "language": "c++", "include_np": True},
-    #     {"sources": ["_quad_tree.pyx"], "include_np": True},
-    # ],
-    # "svm": [
-    #     {
-    #         "sources": ["_newrand.pyx"],
-    #         "include_np": True,
-    #         "include_dirs": [join("src", "newrand")],
-    #         "language": "c++",
-    #         # Use C++11 random number generator fix
-    #         "extra_compile_args": ["-std=c++11"],
-    #     },
-    #     {
-    #         "sources": ["_libsvm.pyx"],
-    #         "depends": [
-    #             join("src", "libsvm", "libsvm_helper.c"),
-    #             join("src", "libsvm", "libsvm_template.cpp"),
-    #             join("src", "libsvm", "svm.cpp"),
-    #             join("src", "libsvm", "svm.h"),
-    #             join("src", "newrand", "newrand.h"),
-    #         ],
-    #         "include_dirs": [
-    #             join("src", "libsvm"),
-    #             join("src", "newrand"),
-    #         ],
-    #         "libraries": ["libsvm-skl"],
-    #         "extra_link_args": ["-lstdc++"],
-    #         "include_np": True,
-    #     },
-    #     {
-    #         "sources": ["_liblinear.pyx"],
-    #         "libraries": ["liblinear-skl"],
-    #         "include_dirs": [
-    #             join("src", "liblinear"),
-    #             join("src", "newrand"),
-    #             join("..", "utils"),
-    #         ],
-    #         "include_np": True,
-    #         "depends": [
-    #             join("src", "liblinear", "tron.h"),
-    #             join("src", "liblinear", "linear.h"),
-    #             join("src", "liblinear", "liblinear_helper.c"),
-    #             join("src", "newrand", "newrand.h"),
-    #         ],
-    #         "extra_link_args": ["-lstdc++"],
-    #     },
-    #     {
-    #         "sources": ["_libsvm_sparse.pyx"],
-    #         "libraries": ["libsvm-skl"],
-    #         "include_dirs": [
-    #             join("src", "libsvm"),
-    #             join("src", "newrand"),
-    #         ],
-    #         "include_np": True,
-    #         "depends": [
-    #             join("src", "libsvm", "svm.h"),
-    #             join("src", "newrand", "newrand.h"),
-    #             join("src", "libsvm", "libsvm_sparse_helper.c"),
-    #         ],
-    #         "extra_link_args": ["-lstdc++"],
-    #     },
-    # ],
+    "neighbors": [
+        {"sources": ["_ball_tree.pyx"], "include_np": True},
+        {"sources": ["_kd_tree.pyx"], "include_np": True},
+        {"sources": ["_partition_nodes.pyx"], "language": "c++", "include_np": True},
+        {"sources": ["_quad_tree.pyx"], "language": "c++", "include_np": True},
+    ],
+    "svm": [
+        {
+            "sources": ["_newrand.pyx"],
+            "include_np": True,
+            "include_dirs": [join("src", "newrand")],
+            "language": "c++",
+            # Use C++11 random number generator fix
+            "extra_compile_args": ["-std=c++11"],
+        },
+        {
+            "sources": ["_libsvm.pyx"],
+            "depends": [
+                join("src", "libsvm", "libsvm_helper.c"),
+                join("src", "libsvm", "libsvm_template.cpp"),
+                join("src", "libsvm", "svm.cpp"),
+                join("src", "libsvm", "svm.h"),
+                join("src", "newrand", "newrand.h"),
+            ],
+            "include_dirs": [
+                join("src", "libsvm"),
+                join("src", "newrand"),
+            ],
+            "libraries": ["libsvm-skl"],
+            "extra_link_args": ["-lstdc++"],
+            "include_np": True,
+        },
+        {
+            "sources": ["_liblinear.pyx"],
+            "libraries": ["liblinear-skl"],
+            "include_dirs": [
+                join("src", "liblinear"),
+                join("src", "newrand"),
+                join("..", "utils"),
+            ],
+            "include_np": True,
+            "depends": [
+                join("src", "liblinear", "tron.h"),
+                join("src", "liblinear", "linear.h"),
+                join("src", "liblinear", "liblinear_helper.c"),
+                join("src", "newrand", "newrand.h"),
+            ],
+            "extra_link_args": ["-lstdc++"],
+        },
+        {
+            "sources": ["_libsvm_sparse.pyx"],
+            "libraries": ["libsvm-skl"],
+            "include_dirs": [
+                join("src", "libsvm"),
+                join("src", "newrand"),
+            ],
+            "include_np": True,
+            "depends": [
+                join("src", "libsvm", "svm.h"),
+                join("src", "newrand", "newrand.h"),
+                join("src", "libsvm", "libsvm_sparse_helper.c"),
+            ],
+            "extra_link_args": ["-lstdc++"],
+        },
+    ],
     "tree": [
         {
             "sources": ["_tree.pyx"],
